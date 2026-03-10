@@ -24,7 +24,7 @@
 
 Before CI, teams worked in isolation for days or weeks, then attempted to merge everything at once — a painful process known as **"integration hell"**.
 
-```txt
+```text
 Developer A (2 weeks of work)  ──┐
 Developer B (2 weeks of work)  ──┼──► MERGE ──► 💥 Conflicts everywhere
 Developer C (2 weeks of work)  ──┘
@@ -34,7 +34,7 @@ Developer C (2 weeks of work)  ──┘
 
 Integrate continuously — every change triggers an automated pipeline:
 
-```txt
+```text
 Developer A (1 commit)  ──► Pipeline ──► ✅ Merged
 Developer B (1 commit)  ──► Pipeline ──► ✅ Merged
 Developer C (1 commit)  ──► Pipeline ──► ❌ Tests fail → Fix immediately
@@ -42,7 +42,7 @@ Developer C (1 commit)  ──► Pipeline ──► ❌ Tests fail → Fix imme
 
 ### The SDLC with CI
 
-```txt
+```text
 ┌─────────┐   ┌──────┐   ┌───────┐   ┌──────┐   ┌─────────┐   ┌────────┐
 │  PLAN   │──►│ CODE │──►│ BUILD │──►│ TEST │──►│ RELEASE │──►│ DEPLOY │
 └─────────┘   └──────┘   └───────┘   └──────┘   └─────────┘   └────────┘
@@ -81,7 +81,7 @@ git config --global alias.recent "branch --sort=-committerdate"
 
 #### Git Flow — scheduled releases
 
-```txt
+```text
 main ──────────────────────────────────────────────► (production tags)
   └── develop ─────────────────────────────────────► (integration)
         ├── feature/login ──────────► merge to develop
@@ -92,7 +92,7 @@ main ─────────────────────────
 
 #### GitHub Flow — continuous web delivery
 
-```txt
+```text
 main ─────────────────────────────────────────────► (always deployable)
   ├── feature/new-api ──► PR ──► merge ──► deploy
   └── fix/auth-bug ─────► PR ──► merge ──► deploy
@@ -102,7 +102,7 @@ main ─────────────────────────
 
 The model used by Google, Meta, and most high-performing engineering teams. Everyone integrates into `main` continuously, keeping the trunk always in a deployable state.
 
-```txt
+```text
           Day 1                  Day 2                  Day 3
             │                     │                     │
 main ───────┼─────────────────────┼─────────────────────┼──────► (always green)
@@ -136,7 +136,7 @@ main ───────┼─────────────────
 
 **What a typical TBD day looks like:**
 
-```txt
+```text
 09:00  Developer picks up a ticket
 09:15  git checkout -b feat/add-email-validation
        (writes code + tests)
@@ -166,7 +166,7 @@ if (useNewEmailValidation) {
 
 Flag lifecycle:
 
-```txt
+```text
 Merge (flag off) ──► QA testing (flag on for testers) ──► Gradual rollout ──► 100% ──► Remove flag
       day 1                  day 2–3                          day 4–5           day 6      day 7+
 ```
@@ -181,7 +181,7 @@ Merge (flag off) ──► QA testing (flag on for testers) ──► Gradual ro
 
 A machine-readable commit format that enables automated changelogs and semantic versioning.
 
-```txt
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -259,7 +259,7 @@ Branch protection rules are the enforcement layer that makes CI meaningful. With
 
 **What happens without protection vs with it:**
 
-```txt
+```text
 Without rules:                        With rules:
 ┌─────────────────────────────┐        ┌─────────────────────────────┐
 │  CI: ❌ Tests failing       │        │  CI: ❌ Tests failing       │
@@ -272,14 +272,14 @@ Without rules:                        With rules:
 
 #### Setting Up on GitHub (UI path)
 
-```txt
+```text
 Repository → Settings → Branches → Add branch protection rule
   Pattern: main   (supports wildcards: release/*, v*.*)
 ```
 
 The key options and what each one actually does:
 
-```txt
+```text
 ☑  Require a pull request before merging
    └─ Prevents direct pushes to main — all changes must come through a PR.
       Nobody, including repo admins, can bypass this without explicitly
@@ -356,7 +356,7 @@ lint:               # ← and this one
 
 This is one of the most common points of confusion when setting up branch protection for the first time. GitHub does **not** know which checks exist until the pipeline has actually run at least once against your repository. Until then, the search box under "Status checks that are required" returns no results — not because the configuration is wrong, but because GitHub has never seen those check names before.
 
-```txt
+```text
 First time setup order:
 
   Step 1 — Push your CI workflow file (.github/workflows/ci.yml)
@@ -371,7 +371,7 @@ First time setup order:
 
 **What the UI looks like before vs after the first run:**
 
-```txt
+```text
 Before first run:
   Status checks that are required
   ┌─────────────────────────────────────────┐
@@ -414,7 +414,7 @@ git push origin ci/setup
 
 **What happens when a required check never runs:**
 
-```txt
+```text
 Scenario: You added "CI / lint" as required, but the workflow only
           triggers on pull_request, and someone pushes directly to
           a non-protected branch.
@@ -520,7 +520,7 @@ All discussions must be resolved: true
 
 ### CI vs Continuous Delivery vs Continuous Deployment
 
-```txt
+```text
 ──────────────────────────────────────────────────────────────
   CONTINUOUS INTEGRATION
   [Code] ──► [Build] ──► [Test]
@@ -552,17 +552,122 @@ All discussions must be resolved: true
 
 ## 2.1 CI Platform Comparison
 
-| Platform                | Config File               | Language    | Free Tier          | Best For                      |
-|-------------------------|---------------------------|-------------|--------------------|-------------------------------|
-| **GitHub Actions**      | `.github/workflows/*.yml` | YAML        | 2,000 min/mo       | GitHub projects               |
-| **GitLab CI/CD**        | `.gitlab-ci.yml`          | YAML        | 400 min/mo         | Full DevOps suite             |
-| **Jenkins**             | `Jenkinsfile`             | Groovy/YAML | Free (self-hosted) | Enterprise customization      |
-| **CircleCI**            | `.circleci/config.yml`    | YAML        | 6,000 min/mo       | Docker-native speed           |
-| **Bitbucket Pipelines** | `bitbucket-pipelines.yml` | YAML        | 50 min/mo          | Atlassian ecosystem           |
-| **Azure DevOps**        | `azure-pipelines.yml`     | YAML        | 1,800 min/mo       | Microsoft/.NET shops          |
-| **Drone CI**            | `.drone.yml`              | YAML        | Free (self-hosted) | Lightweight, container-native |
+| Platform | Config File | Free Tier (cloud) | Self-hostable | Best For |
+|----------|-------------|-------------------|---------------|----------|
+| **GitHub Actions** | `.github/workflows/*.yml` | 2,000 min/mo (public repos: unlimited) | ✅ | GitHub projects |
+| **GitLab CI/CD** | `.gitlab-ci.yml` | 400 min/mo | ✅ | Full DevOps suite |
+| **Jenkins** | `Jenkinsfile` | ❌ (no cloud offering) | ✅ free | Enterprise customization |
+| **CircleCI** | `.circleci/config.yml` | 6,000 min/mo | ✅ | Docker-native speed |
+| **Bitbucket Pipelines** | `bitbucket-pipelines.yml` | 50 min/mo | ❌ | Atlassian ecosystem |
+| **Azure DevOps** | `azure-pipelines.yml` | 1,800 min/mo (public: unlimited) | ✅ | Microsoft/.NET shops |
+| **Drone CI** | `.drone.yml` | ❌ (no cloud offering) | ✅ free | Lightweight, container-native |
 
 > **Recommendation:** Start with **GitHub Actions** or **GitLab CI** — best documentation, native integration, and large community.
+
+### Understanding the Free Tier
+
+"Free tier" in cloud CI platforms means **compute minutes per month** billed against a shared runner fleet. It is not unlimited free usage — it is a monthly quota that resets on a billing cycle. Understanding how minutes are counted and when you will exhaust them avoids surprise bills.
+
+#### How Minutes Are Counted
+
+A "minute" in CI is a **runner-minute**: one minute of wall-clock time on one runner. Parallel jobs each consume their own minutes simultaneously.
+
+```text
+Example pipeline with 3 parallel jobs, each taking 5 minutes:
+
+  lint      ████████████  5 min
+  test      ████████████  5 min   ← all run at the same time
+  build     ████████████  5 min
+
+  Wall-clock time elapsed:  5 minutes
+  Minutes billed:          15 minutes  (3 jobs × 5 min)
+```
+
+Runner OS also affects billing on some platforms. GitHub Actions applies a multiplier to non-Linux runners:
+
+| OS | GitHub Actions multiplier |
+|----|--------------------------|
+| Linux (ubuntu-*) | 1× (base rate) |
+| Windows (windows-*) | 2× |
+| macOS (macos-*) | 10× |
+
+A 10-minute macOS job costs 100 minutes of your free quota. This is relevant if you are building mobile apps or testing cross-platform CLI tools.
+
+#### Free Tier Realities Per Platform
+
+**GitHub Actions — 2,000 min/mo on private repos**
+
+The most important exception: **public repositories get unlimited free minutes** on GitHub-hosted runners. This makes GitHub Actions the default choice for open source projects.
+
+```text
+Private repo:   2,000 min/mo  on Linux  (~33 hours of single-job pipelines)
+                  200 min/mo  equivalent on macOS (10× multiplier)
+Public repo:    Unlimited     on all OS
+```
+
+A team running 20 PRs/day with a 6-minute pipeline uses roughly:
+```text
+20 PRs × 6 min × 22 working days = 2,640 min/mo
+→ Exceeds the free tier on private repos
+→ Fine on public repos
+```
+
+**GitLab CI — 400 min/mo (shared runners)**
+
+GitLab's free tier is significantly smaller. It suits individuals and very small teams but is quickly exhausted by active development workflows. The practical alternative: **register your own machine as a GitLab Runner** — this is free, has no minute limit, and is how most self-hosted GitLab setups operate.
+
+```text
+400 min/mo ÷ 22 working days ≈ 18 min/day of shared runner time
+
+If your pipeline takes 8 min and you push 3 times a day:
+  3 × 8 min = 24 min/day → quota runs out mid-month
+```
+
+**CircleCI — 6,000 min/mo**
+
+The largest free cloud quota, but limited to 1 concurrent job on free plans. Parallelism (multiple jobs running at the same time) requires a paid plan.
+
+```text
+Free plan:  6,000 min/mo, 1 concurrent job
+            Jobs queue rather than run in parallel
+            → a pipeline with 4 jobs runs sequentially, not in parallel
+```
+
+**Bitbucket Pipelines — 50 min/mo**
+
+Effectively a trial tier. 50 minutes is consumed by a single working day of normal development. Only viable for very low-frequency pipelines or as a trigger for external systems.
+
+**Jenkins and Drone CI — no cloud offering**
+
+These platforms have no managed cloud runner. "Free" means the software licence is free, but **you provide and pay for the compute yourself** (a VM, a bare-metal server, or a container on your own infrastructure). There is no minute quota, but there are real costs: hardware, electricity, maintenance, and runner uptime.
+
+#### When to Move Off the Free Tier
+
+Signs you have outgrown a cloud free tier:
+
+```text
+1. Pipelines are queuing — jobs wait minutes before a runner picks them up
+2. You are rationing pushes to save minutes
+3. You are skipping CI runs to preserve quota
+4. Your monthly bill spikes unexpectedly at day 18
+
+Solutions, in order of preference:
+  a) Self-host one or more runners → unlimited minutes on your own hardware
+  b) Optimize pipelines to reduce per-run minute consumption
+  c) Upgrade to a paid plan for the parallelism and quota you actually need
+```
+
+#### Self-Hosted Runners: Zero Minute Cost
+
+Every platform that supports self-hosted runners exempts them from minute quotas entirely. Jobs on your own machine do not consume any cloud minutes regardless of how long they run.
+
+```text
+GitHub Actions self-hosted runner:
+  runs-on: self-hosted          ← this job costs $0 in GitHub minutes
+  runs-on: [self-hosted, linux, gpu]   ← same, with label targeting
+```
+
+This is the standard solution for teams with GPU workloads, private network access, or simply high pipeline volume. See [Section 4.2 — Self-Hosted Runners](#42-self-hosted-runners) for setup details.
 
 ---
 
@@ -570,7 +675,7 @@ All discussions must be resolved: true
 
 ### Pipeline Lifecycle
 
-```txt
+```text
 ┌──────────┐
 │  TRIGGER │  push / pull_request / schedule / manual / webhook
 └────┬─────┘
@@ -960,7 +1065,7 @@ pipeline {
 
 ### The Test Pyramid
 
-```txt
+```text
             ┌───────────┐
            /│   E2E     │\       Few, slow, expensive
           / └───────────┘ \      Run: nightly or on release
