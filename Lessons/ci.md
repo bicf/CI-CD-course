@@ -595,7 +595,7 @@ A 10-minute macOS job costs 100 minutes of your free quota. This is relevant if 
 
 #### Free Tier Realities Per Platform
 
-##### GitHub Actions — 2,000 min/mo on private repos #####
+##### GitHub Actions — 2,000 min/mo on private repos
 
 The most important exception: **public repositories get unlimited free minutes** on GitHub-hosted runners. This makes GitHub Actions the default choice for open source projects.
 
@@ -613,7 +613,7 @@ A team running 20 PRs/day with a 6-minute pipeline uses roughly:
 → Fine on public repos
 ```
 
-##### GitLab CI — 400 min/mo (shared runners) #####
+##### GitLab CI — 400 min/mo (shared runners)
 
 GitLab's free tier is significantly smaller. It suits individuals and very small teams but is quickly exhausted by active development workflows. The practical alternative: **register your own machine as a GitLab Runner** — this is free, has no minute limit, and is how most self-hosted GitLab setups operate.
 
@@ -624,7 +624,7 @@ If your pipeline takes 8 min and you push 3 times a day:
   3 × 8 min = 24 min/day → quota runs out mid-month
 ```
 
-##### CircleCI — 6,000 min/mo #####
+##### CircleCI — 6,000 min/mo
 
 The largest free cloud quota, but limited to 1 concurrent job on free plans. Parallelism (multiple jobs running at the same time) requires a paid plan.
 
@@ -634,11 +634,11 @@ Free plan:  6,000 min/mo, 1 concurrent job
             → a pipeline with 4 jobs runs sequentially, not in parallel
 ```
 
-##### Bitbucket Pipelines — 50 min/mo #####
+##### Bitbucket Pipelines — 50 min/mo
 
 Effectively a trial tier. 50 minutes is consumed by a single working day of normal development. Only viable for very low-frequency pipelines or as a trigger for external systems.
 
-##### Jenkins and Drone CI — no cloud offering #####
+##### Jenkins and Drone CI — no cloud offering
 
 These platforms have no managed cloud runner. "Free" means the software licence is free, but **you provide and pay for the compute yourself** (a VM, a bare-metal server, or a container on your own infrastructure). There is no minute quota, but there are real costs: hardware, electricity, maintenance, and runner uptime.
 
