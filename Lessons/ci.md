@@ -352,15 +352,84 @@ lint:               # ← and this one
   script: npm run lint
 ```
 
-**What happens when a check is not yet run** (e.g., no CI file exists yet):
+#### ⚠️ Checks Only Appear After the First Pipeline Run
+
+This is one of the most common points of confusion when setting up branch protection for the first time. GitHub does **not** know which checks exist until the pipeline has actually run at least once against your repository. Until then, the search box under "Status checks that are required" returns no results — not because the configuration is wrong, but because GitHub has never seen those check names before.
+
+```
+First time setup order:
+
+  Step 1 — Push your CI workflow file (.github/workflows/ci.yml)
+            ↓
+  Step 2 — Let it run once (on any branch or a test PR)
+            ↓
+  Step 3 — Go to Settings → Branches → Add rule → main
+            Type the check name in the search box
+            ↓ now it appears as an autocomplete suggestion
+  Step 4 — Select and save
+```
+
+**What the UI looks like before vs after the first run:**
+
+```
+Before first run:
+  Status checks that are required
+  ┌─────────────────────────────────────────┐
+  │ Search for status checks...             │
+  └─────────────────────────────────────────┘
+  No results found for "CI / lint"          ← frustrating, but expected
+
+After first run:
+  Status checks that are required
+  ┌─────────────────────────────────────────┐
+  │ CI /                                    │
+  └─────────────────────────────────────────┘
+  ✓ CI / build-and-test                     ← now selectable
+  ✓ CI / lint
+  ✓ CI / security-scan
+```
+
+**Practical bootstrap sequence for a new repository:**
+
+```bash
+# 1. Add your workflow file and push to a feature branch
+git checkout -b ci/setup
+mkdir -p .github/workflows
+# ... create ci.yml ...
+git add .github/workflows/ci.yml
+git commit -m "ci: add initial CI pipeline"
+git push origin ci/setup
+
+# 2. Open a PR — this triggers the pipeline for the first time
+#    Wait for all jobs to complete (green or red doesn't matter,
+#    GitHub just needs to register the check names)
+
+# 3. Now go to Settings → Branches → Add rule
+#    The check names will appear in the autocomplete search
+
+# 4. Merge this PR — branch protection is now active for all future PRs
+```
+
+> **Tip:** If you rename a job in your workflow YAML later (e.g., `lint` → `lint-and-format`), GitHub will stop receiving reports for the old name. The branch protection rule will reference a check that no longer exists, blocking all PRs. Always update the required checks in Settings immediately after renaming a job, or run the pipeline once so the new name appears in the search before saving the rule.
+
+**What happens when a required check never runs:**
 
 ```txt
-Status: Pending — "Expected — Waiting for status to be reported"
-Result: PR is blocked until the check runs and passes.
+Scenario: You added "CI / lint" as required, but the workflow only
+          triggers on pull_request, and someone pushes directly to
+          a non-protected branch.
 
-This is the correct and safe behavior. A branch protection rule that
-references a check that never runs will block merges indefinitely —
-which is better than silently allowing unverified merges.
+Status shown on PR: "Expected — Waiting for status to be reported"
+Result: PR is permanently blocked — the check never fires.
+
+This is intentional and safe. It forces you to ensure your workflow
+trigger covers the protected branch context. Common fix:
+
+  on:
+    push:
+      branches: [main]
+    pull_request:         ← this is the trigger that populates the check
+      branches: [main]    ← on PRs targeting main
 ```
 
 #### Full Recommended Configuration
