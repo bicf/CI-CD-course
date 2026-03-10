@@ -24,7 +24,7 @@
 
 Before CI, teams worked in isolation for days or weeks, then attempted to merge everything at once — a painful process known as **"integration hell"**.
 
-```
+```txt
 Developer A (2 weeks of work)  ──┐
 Developer B (2 weeks of work)  ──┼──► MERGE ──► 💥 Conflicts everywhere
 Developer C (2 weeks of work)  ──┘
@@ -34,7 +34,7 @@ Developer C (2 weeks of work)  ──┘
 
 Integrate continuously — every change triggers an automated pipeline:
 
-```
+```txt
 Developer A (1 commit)  ──► Pipeline ──► ✅ Merged
 Developer B (1 commit)  ──► Pipeline ──► ✅ Merged
 Developer C (1 commit)  ──► Pipeline ──► ❌ Tests fail → Fix immediately
@@ -42,7 +42,7 @@ Developer C (1 commit)  ──► Pipeline ──► ❌ Tests fail → Fix imme
 
 ### The SDLC with CI
 
-```
+```txt
 ┌─────────┐   ┌──────┐   ┌───────┐   ┌──────┐   ┌─────────┐   ┌────────┐
 │  PLAN   │──►│ CODE │──►│ BUILD │──►│ TEST │──►│ RELEASE │──►│ DEPLOY │
 └─────────┘   └──────┘   └───────┘   └──────┘   └─────────┘   └────────┘
@@ -81,7 +81,7 @@ git config --global alias.recent "branch --sort=-committerdate"
 
 #### Git Flow — scheduled releases
 
-```
+```txt
 main ──────────────────────────────────────────────► (production tags)
   └── develop ─────────────────────────────────────► (integration)
         ├── feature/login ──────────► merge to develop
@@ -92,7 +92,7 @@ main ─────────────────────────
 
 #### GitHub Flow — continuous web delivery
 
-```
+```txt
 main ─────────────────────────────────────────────► (always deployable)
   ├── feature/new-api ──► PR ──► merge ──► deploy
   └── fix/auth-bug ─────► PR ──► merge ──► deploy
@@ -102,7 +102,7 @@ main ─────────────────────────
 
 The model used by Google, Meta, and most high-performing engineering teams. Everyone integrates into `main` continuously, keeping the trunk always in a deployable state.
 
-```
+```txt
           Day 1                  Day 2                  Day 3
             │                     │                     │
 main ───────┼─────────────────────┼─────────────────────┼──────► (always green)
@@ -136,7 +136,7 @@ main ───────┼─────────────────
 
 **What a typical TBD day looks like:**
 
-```
+```txt
 09:00  Developer picks up a ticket
 09:15  git checkout -b feat/add-email-validation
        (writes code + tests)
@@ -165,7 +165,8 @@ if (useNewEmailValidation) {
 ```
 
 Flag lifecycle:
-```
+
+```txt
 Merge (flag off) ──► QA testing (flag on for testers) ──► Gradual rollout ──► 100% ──► Remove flag
       day 1                  day 2–3                          day 4–5           day 6      day 7+
 ```
@@ -180,7 +181,7 @@ Merge (flag off) ──► QA testing (flag on for testers) ──► Gradual ro
 
 A machine-readable commit format that enables automated changelogs and semantic versioning.
 
-```
+```txt
 <type>[optional scope]: <description>
 
 [optional body]
@@ -258,7 +259,7 @@ Branch protection rules are the enforcement layer that makes CI meaningful. With
 
 **What happens without protection vs with it:**
 
-```
+```txt
 Without rules:                        With rules:
 ┌─────────────────────────────┐        ┌─────────────────────────────┐
 │  CI: ❌ Tests failing       │        │  CI: ❌ Tests failing       │
@@ -271,14 +272,14 @@ Without rules:                        With rules:
 
 #### Setting Up on GitHub (UI path)
 
-```
+```txt
 Repository → Settings → Branches → Add branch protection rule
   Pattern: main   (supports wildcards: release/*, v*.*)
 ```
 
 The key options and what each one actually does:
 
-```
+```txt
 ☑  Require a pull request before merging
    └─ Prevents direct pushes to main — all changes must come through a PR.
       Nobody, including repo admins, can bypass this without explicitly
@@ -324,6 +325,7 @@ The key options and what each one actually does:
 The name you register in the branch protection rule must match **exactly** what the CI system reports. Here is how to find the correct name for each platform:
 
 **GitHub Actions** — the check name is `{workflow name} / {job id}`:
+
 ```yaml
 # .github/workflows/ci.yml
 name: CI                    # ← workflow name
@@ -340,6 +342,7 @@ jobs:
 ```
 
 **GitLab CI** — the check name is the job key:
+
 ```yaml
 # .gitlab-ci.yml
 unit-tests:         # ← this is the status check name reported to GitHub
@@ -351,7 +354,7 @@ lint:               # ← and this one
 
 **What happens when a check is not yet run** (e.g., no CI file exists yet):
 
-```
+```txt
 Status: Pending — "Expected — Waiting for status to be reported"
 Result: PR is blocked until the check runs and passes.
 
@@ -448,7 +451,7 @@ All discussions must be resolved: true
 
 ### CI vs Continuous Delivery vs Continuous Deployment
 
-```
+```txt
 ──────────────────────────────────────────────────────────────
   CONTINUOUS INTEGRATION
   [Code] ──► [Build] ──► [Test]
@@ -498,7 +501,7 @@ All discussions must be resolved: true
 
 ### Pipeline Lifecycle
 
-```
+```txt
 ┌──────────┐
 │  TRIGGER │  push / pull_request / schedule / manual / webhook
 └────┬─────┘
@@ -888,7 +891,7 @@ pipeline {
 
 ### The Test Pyramid
 
-```
+```txt
             ┌───────────┐
            /│   E2E     │\       Few, slow, expensive
           / └───────────┘ \      Run: nightly or on release
@@ -1068,6 +1071,7 @@ test.describe('Login flow', () => {
 ```
 
 #### playwright.config.ts — CI-optimized settings
+
 ```typescript
 import { defineConfig } from '@playwright/test';
 
@@ -1298,6 +1302,7 @@ RUN npm run build
 ### ESLint Configuration
 
 #### .eslintrc.json
+
 ```json
 {
   "extends": [
@@ -1318,6 +1323,7 @@ RUN npm run build
 ### Prettier Configuration
 
 #### .prettierrc
+
 ```json
 {
   "semi": true,
@@ -1339,6 +1345,7 @@ npx husky init
 ```
 
 #### package.json
+
 ```json
 {
   "lint-staged": {
@@ -1520,6 +1527,7 @@ jobs:
 ```
 
 #### .releaserc.json — semantic-release config
+
 ```json
 {
   "branches": ["main"],
@@ -2124,6 +2132,7 @@ jobs:
 ### Monorepo CI with Nx (Affected-Only Builds)
 
 #### nx.json
+
 ```json
 {
   "affected": {
@@ -2140,8 +2149,8 @@ jobs:
   }
 }
 ```
-`nrwl/nx-cloud` used as distributed cache
 
+`nrwl/nx-cloud` used as distributed cache
 
 ```yaml
 # Only test/build affected projects — not the entire monorepo
