@@ -4,7 +4,11 @@ on:
   push:
     paths:
       - '**/*.md'
+    branches:
+      - develop
   pull_request:
+    branches:
+      - develop
     paths:
       - '**/*.md'
 
