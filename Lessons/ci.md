@@ -50,12 +50,12 @@ Developer C (1 commit)  ──► Pipeline ──► ❌ Tests fail → Fix imme
                  └───── CI ─────┘  (automated feedback on every commit)
 ```
 
-| Stage | Without CI | With CI |
-|-------|-----------|---------|
-| Code | Manual reviews | Automated linting, type checking |
-| Build | "Works on my machine" | Reproducible builds in clean environments |
-| Test | Run manually, often skipped | Mandatory, automated on every commit |
-| Release | Manual, error-prone | Automated versioning and changelogs |
+| Stage   | Without CI                  | With CI                                   |
+|---------|-----------------------------|-------------------------------------------|
+| Code    | Manual reviews              | Automated linting, type checking          |
+| Build   | "Works on my machine"       | Reproducible builds in clean environments |
+| Test    | Run manually, often skipped | Mandatory, automated on every commit      |
+| Release | Manual, error-prone         | Automated versioning and changelogs       |
 
 ---
 
@@ -126,13 +126,13 @@ main ───────┼─────────────────
 
 **Why it works better for CI than Git Flow or GitHub Flow:**
 
-| | Git Flow | GitHub Flow | Trunk-Based Dev |
-|---|----------|-------------|-----------------|
-| Branch lifetime | Days–weeks | Hours–days | Hours (< 1 day) |
-| Merge conflicts | Large, painful | Moderate | Minimal |
-| CI feedback speed | Delayed | Fast | Immediate |
-| Integration risk | High at release | Low | Very low |
-| Feature flag needed | No | Rarely | Yes |
+|                     | Git Flow        | GitHub Flow | Trunk-Based Dev |
+|---------------------|-----------------|-------------|-----------------|
+| Branch lifetime     | Days–weeks      | Hours–days  | Hours (< 1 day) |
+| Merge conflicts     | Large, painful  | Moderate    | Minimal         |
+| CI feedback speed   | Delayed         | Fast        | Immediate       |
+| Integration risk    | High at release | Low         | Very low        |
+| Feature flag needed | No              | Rarely      | Yes             |
 
 **What a typical TBD day looks like:**
 
@@ -188,17 +188,17 @@ A machine-readable commit format that enables automated changelogs and semantic 
 [optional footer(s)]
 ```
 
-| Type | Meaning | Version Bump |
-|------|---------|-------------|
-| `feat` | New feature | Minor (1.x.0) |
-| `fix` | Bug fix | Patch (1.0.x) |
-| `feat!` | Breaking change | Major (x.0.0) |
-| `docs` | Documentation only | None |
-| `chore` | Maintenance tasks | None |
-| `test` | Adding or fixing tests | None |
-| `ci` | CI config changes | None |
-| `perf` | Performance improvement | Patch |
-| `refactor` | Code restructure | None |
+| Type       | Meaning                 | Version Bump  |
+|------------|-------------------------|---------------|
+| `feat`     | New feature             | Minor (1.x.0) |
+| `fix`      | Bug fix                 | Patch (1.0.x) |
+| `feat!`    | Breaking change         | Major (x.0.0) |
+| `docs`     | Documentation only      | None          |
+| `chore`    | Maintenance tasks       | None          |
+| `test`     | Adding or fixing tests  | None          |
+| `ci`       | CI config changes       | None          |
+| `perf`     | Performance improvement | Patch         |
+| `refactor` | Code restructure        | None          |
 
 **Examples:**
 
@@ -480,15 +480,15 @@ All discussions must be resolved: true
 
 ## 2.1 CI Platform Comparison
 
-| Platform | Config File | Language | Free Tier | Best For |
-|----------|-------------|----------|-----------|----------|
-| **GitHub Actions** | `.github/workflows/*.yml` | YAML | 2,000 min/mo | GitHub projects |
-| **GitLab CI/CD** | `.gitlab-ci.yml` | YAML | 400 min/mo | Full DevOps suite |
-| **Jenkins** | `Jenkinsfile` | Groovy/YAML | Free (self-hosted) | Enterprise customization |
-| **CircleCI** | `.circleci/config.yml` | YAML | 6,000 min/mo | Docker-native speed |
-| **Bitbucket Pipelines** | `bitbucket-pipelines.yml` | YAML | 50 min/mo | Atlassian ecosystem |
-| **Azure DevOps** | `azure-pipelines.yml` | YAML | 1,800 min/mo | Microsoft/.NET shops |
-| **Drone CI** | `.drone.yml` | YAML | Free (self-hosted) | Lightweight, container-native |
+| Platform                | Config File               | Language    | Free Tier          | Best For                      |
+|-------------------------|---------------------------|-------------|--------------------|-------------------------------|
+| **GitHub Actions**      | `.github/workflows/*.yml` | YAML        | 2,000 min/mo       | GitHub projects               |
+| **GitLab CI/CD**        | `.gitlab-ci.yml`          | YAML        | 400 min/mo         | Full DevOps suite             |
+| **Jenkins**             | `Jenkinsfile`             | Groovy/YAML | Free (self-hosted) | Enterprise customization      |
+| **CircleCI**            | `.circleci/config.yml`    | YAML        | 6,000 min/mo       | Docker-native speed           |
+| **Bitbucket Pipelines** | `bitbucket-pipelines.yml` | YAML        | 50 min/mo          | Atlassian ecosystem           |
+| **Azure DevOps**        | `azure-pipelines.yml`     | YAML        | 1,800 min/mo       | Microsoft/.NET shops          |
+| **Drone CI**            | `.drone.yml`              | YAML        | Free (self-hosted) | Lightweight, container-native |
 
 > **Recommendation:** Start with **GitHub Actions** or **GitLab CI** — best documentation, native integration, and large community.
 
@@ -530,17 +530,17 @@ All discussions must be resolved: true
 
 ### Key Concepts Glossary
 
-| Term | Definition |
-|------|-----------|
-| **Trigger** | Event that starts the pipeline (push, PR, cron, webhook) |
-| **Runner/Agent** | The machine where jobs execute |
-| **Job** | An isolated unit of work with its own runner |
-| **Step** | A single command or action within a job |
-| **Stage** | Logical group of jobs (test, build, deploy) |
-| **Artifact** | File(s) produced by a job, passed to downstream jobs |
-| **Cache** | Persisted files reused across pipeline runs |
-| **Environment** | Named deployment target (dev, staging, prod) |
-| **Secret** | Encrypted value injected as an environment variable |
+| Term             | Definition                                               |
+|------------------|----------------------------------------------------------|
+| **Trigger**      | Event that starts the pipeline (push, PR, cron, webhook) |
+| **Runner/Agent** | The machine where jobs execute                           |
+| **Job**          | An isolated unit of work with its own runner             |
+| **Step**         | A single command or action within a job                  |
+| **Stage**        | Logical group of jobs (test, build, deploy)              |
+| **Artifact**     | File(s) produced by a job, passed to downstream jobs     |
+| **Cache**        | Persisted files reused across pipeline runs              |
+| **Environment**  | Named deployment target (dev, staging, prod)             |
+| **Secret**       | Encrypted value injected as an environment variable      |
 
 ---
 
@@ -1067,8 +1067,8 @@ test.describe('Login flow', () => {
 });
 ```
 
-```yaml
-# playwright.config.ts — CI-optimized settings
+#### playwright.config.ts — CI-optimized settings
+```typescript
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
@@ -1278,8 +1278,11 @@ jobs:
 # ✅ GOOD: Copy package files BEFORE source code
 # This way, npm install is only re-run when package.json changes
 COPY package*.json ./
-RUN npm ci                     # Cached unless package*.json changed
-COPY src/ ./src/               # Source changes don't invalidate the npm layer
+
+# Cached unless package*.json changed
+RUN npm ci
+# Source changes don't invalidate the npm layer
+COPY src/ ./src/               
 RUN npm run build
 
 # ❌ BAD: Copy everything at once — any source change busts the cache
@@ -1294,8 +1297,8 @@ RUN npm run build
 
 ### ESLint Configuration
 
+#### .eslintrc.json
 ```json
-// .eslintrc.json
 {
   "extends": [
     "eslint:recommended",
@@ -1314,8 +1317,8 @@ RUN npm run build
 
 ### Prettier Configuration
 
+#### .prettierrc
 ```json
-// .prettierrc
 {
   "semi": true,
   "singleQuote": true,
@@ -1335,8 +1338,8 @@ npm install --save-dev husky lint-staged
 npx husky init
 ```
 
+#### package.json
 ```json
-// package.json
 {
   "lint-staged": {
     "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
@@ -1516,8 +1519,8 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
+#### .releaserc.json — semantic-release config
 ```json
-// .releaserc.json — semantic-release config
 {
   "branches": ["main"],
   "plugins": [
@@ -2120,8 +2123,8 @@ jobs:
 
 ### Monorepo CI with Nx (Affected-Only Builds)
 
+#### nx.json
 ```json
-// nx.json
 {
   "affected": {
     "defaultBase": "main"
@@ -2131,12 +2134,14 @@ jobs:
       "runner": "@nrwl/nx-cloud",
       "options": {
         "cacheableOperations": ["build", "test", "lint"],
-        "accessToken": "your-nx-cloud-token"   // Distributed cache
+        "accessToken": "your-nx-cloud-token"   
       }
     }
   }
 }
 ```
+`nrwl/nx-cloud` used as distributed cache
+
 
 ```yaml
 # Only test/build affected projects — not the entire monorepo
@@ -2267,12 +2272,12 @@ include:
 
 ### Tracking the Four Key Metrics
 
-| Metric | How to Measure | Target (Elite) |
-|--------|---------------|---------------|
-| **Deployment Frequency** | Count deploys to prod per day via CI logs | Multiple/day |
-| **Lead Time for Changes** | Time from first commit to prod deploy | < 1 hour |
-| **Change Failure Rate** | % of deploys that trigger a rollback or incident | < 5% |
-| **MTTR** | Time between incident alert and resolved deploy | < 1 hour |
+| Metric                    | How to Measure                                   | Target (Elite) |
+|---------------------------|--------------------------------------------------|----------------|
+| **Deployment Frequency**  | Count deploys to prod per day via CI logs        | Multiple/day   |
+| **Lead Time for Changes** | Time from first commit to prod deploy            | < 1 hour       |
+| **Change Failure Rate**   | % of deploys that trigger a rollback or incident | < 5%           |
+| **MTTR**                  | Time between incident alert and resolved deploy  | < 1 hour       |
 
 ### Collecting Metrics from GitHub Actions
 
