@@ -356,7 +356,7 @@ lint:               # ← and this one
 
 This is one of the most common points of confusion when setting up branch protection for the first time. GitHub does **not** know which checks exist until the pipeline has actually run at least once against your repository. Until then, the search box under "Status checks that are required" returns no results — not because the configuration is wrong, but because GitHub has never seen those check names before.
 
-```
+```txt
 First time setup order:
 
   Step 1 — Push your CI workflow file (.github/workflows/ci.yml)
@@ -371,7 +371,7 @@ First time setup order:
 
 **What the UI looks like before vs after the first run:**
 
-```
+```txt
 Before first run:
   Status checks that are required
   ┌─────────────────────────────────────────┐
