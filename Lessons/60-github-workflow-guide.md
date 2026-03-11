@@ -32,7 +32,7 @@
 
 A **workflow** is an automated process defined in a YAML file stored under `.github/workflows/` in your repository. GitHub Actions detects and runs every `.yml` file in that directory according to its trigger conditions.
 
-```
+```text
 Repository
 └── .github/
     └── workflows/
@@ -70,7 +70,7 @@ jobs:                       # (4) The work to be done — one or more named jobs
 
 **How the keys relate to each other:**
 
-```
+```text
 Workflow
 │
 ├── on          → defines WHEN the workflow runs
@@ -117,7 +117,7 @@ on:
 
 **Branch filter logic:**
 
-```
+```text
 Push to main              → workflow runs      (matches 'main')
 Push to release/1.0       → workflow runs      (matches 'release/**')
 Push to develop           → workflow skipped   (no matching rule)
@@ -154,7 +154,7 @@ on:
 
 Cron format: `minute hour day-of-month month day-of-week`
 
-```
+```text
 '0 6 * * 1'
  │ │ │ │ └── day of week: 1 = Monday (0=Sun, 7=Sun)
  │ │ │ └──── month: * = every month
@@ -333,7 +333,7 @@ jobs:
     steps: ...
 ```
 
-```
+```text
 Time →
 
 lint     ████████████
@@ -364,7 +364,7 @@ jobs:
     steps: ...
 ```
 
-```
+```text
 Time →
 
 build    ████████
@@ -398,7 +398,7 @@ jobs:
     ...
 ```
 
-```
+```text
 Time →
 
 build              ████████
@@ -564,6 +564,7 @@ jobs:
 ```
 
 This creates 3 parallel jobs:
+
 - `test (18)`
 - `test (20)`
 - `test (22)`
@@ -579,7 +580,7 @@ strategy:
 
 This creates **3 × 2 = 6** parallel jobs, one for every combination:
 
-```
+```text
 ubuntu-latest + node 18
 ubuntu-latest + node 20
 macos-latest  + node 18
@@ -732,7 +733,7 @@ steps:
 
 Secrets can be scoped at three levels:
 
-```
+```text
 Organization secrets  →  available to all repos in the org
 Repository secrets    →  available to this repo only
 Environment secrets   →  available only when deploying to a specific environment
@@ -1052,7 +1053,7 @@ The easiest approach — `actions/setup-node`, `setup-python`, `setup-java` etc.
 
 **Cache key strategy:**
 
-```
+```text
 Exact hit:   ubuntu-node-abc123  →  restore fully, skip install
 Partial hit: ubuntu-node-        →  restore older cache, npm ci updates delta
 Miss:        (nothing)           →  full npm ci, save new cache at end

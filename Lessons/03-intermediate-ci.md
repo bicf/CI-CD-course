@@ -6,7 +6,7 @@
 
 Without Docker, a CI pipeline runs directly on the host runner — a shared machine with a pre-installed OS, language runtimes, and system libraries. This creates a class of problems that become more painful as a project grows:
 
-```
+```text
 Without Docker:
 
   Runner OS: Ubuntu 22.04
@@ -33,7 +33,7 @@ Docker solves this by packaging the application **together with its exact enviro
 
 The end goal of the Docker section of a CI pipeline is to produce a **tagged, versioned image stored in a container registry** (in this guide, GHCR — GitHub Container Registry). Once the image is there, any downstream system — a deployment pipeline, a Kubernetes cluster, a developer's local machine — can pull and run it without needing the source code, build tools, or any knowledge of how it was built.
 
-```
+```text
 Source code                     Container Registry (GHCR)
 ─────────────                   ──────────────────────────
 src/
@@ -55,7 +55,7 @@ Building an image takes time and requires build tools, source code, and network 
 
 The `sha-a3f2c1d` tag is immutable — it always refers to the exact image built from that specific commit. Tags like `:latest` or `:main` are mutable and move with every push, making it impossible to know which version is actually running. In production deployments, always pin to the SHA tag.
 
-```
+```text
 Mutable tag (risky in production):
   image: ghcr.io/org/repo:latest    ← changes with every push, no audit trail
 
@@ -67,7 +67,7 @@ Immutable tag (safe):
 
 A complete Docker-in-CI setup involves three files working together:
 
-```
+```text
 Repository:
   ├── Dockerfile                       (1) defines the image build
   ├── .dockerignore                    (2) controls what enters the build context
@@ -127,7 +127,7 @@ CMD ["node", "dist/index.js"]
 
 The workflow file and the Dockerfile are two separate files with distinct responsibilities that work together as a pipeline:
 
-```
+```text
 Repository on disk:
   ├── Dockerfile                        ← defines HOW to build the image
   └── .github/
@@ -139,7 +139,7 @@ The Dockerfile is not referenced by name anywhere in the workflow YAML. Instead,
 
 **End-to-end flow from a push to a pullable image:**
 
-```
+```text
 1. Developer pushes to main (or creates a tag like v1.2.0)
         │
         ▼
@@ -272,7 +272,8 @@ jobs:
 **Where the image lands in GHCR and how to pull it:**
 
 Once the workflow completes, the image is visible at:
-```
+
+```text
 https://github.com/ORG/REPO/pkgs/container/REPO
 ```
 
@@ -297,7 +298,7 @@ docker pull ghcr.io/org/repo:sha-a3f2c1d
 
 Docker builds images as a stack of layers. Each `COPY` and `RUN` instruction creates a new layer. When a layer changes, Docker invalidates that layer **and every layer above it** — forcing all subsequent instructions to re-run from scratch. Understanding this cascade is the key to fast, cache-efficient builds in CI.
 
-```
+```text
 Layer stack (top = last instruction):
 
   [5] RUN npm run build      ← rebuilt if layer 4 changes
