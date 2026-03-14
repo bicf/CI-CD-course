@@ -226,7 +226,7 @@ jobs:
 **Available GitHub-hosted runners:**
 
 | Label | OS | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `ubuntu-latest` | Ubuntu 22.04 | Fastest, cheapest, most tooling pre-installed |
 | `ubuntu-22.04` | Ubuntu 22.04 | Pin to a specific version |
 | `ubuntu-20.04` | Ubuntu 20.04 | Legacy support |
@@ -242,7 +242,7 @@ A self-hosted runner is a machine you own and operate that connects to GitHub to
 Runners are registered at three scopes:
 
 | Scope | Where to find it | Who can use it |
-|---|---|---|
+| --- | --- | --- |
 | **Repository** | Repo → Settings → Actions → Runners | Only that repo |
 | **Organization** | Org → Settings → Actions → Runner groups | Any repo in the org |
 | **Enterprise** | Enterprise → Settings → Actions → Runners | Any org in the enterprise |
@@ -340,7 +340,7 @@ jobs:
 
 Instead of registering manually, you can automate runner creation — useful for ephemeral runners in cloud autoscaling setups.
 
-**Step 1: Generate a registration token via the API**
+#### Step 1: Generate a registration token via the API
 
 ```bash
 # For a repository runner
@@ -353,7 +353,7 @@ curl -X POST \
 # { "token": "AXXXXXXXXXX", "expires_at": "2024-01-01T12:00:00Z" }
 ```
 
-**Step 2: Use the token in a startup script (e.g., cloud VM user-data)**
+#### Step 2: Use the token in a startup script (e.g., cloud VM user-data)
 
 ```bash
 #!/bin/bash
@@ -710,7 +710,7 @@ steps:
 ### 8.3 Status Functions
 
 | Function | Evaluates to true when... |
-|---|---|
+| --- | --- |
 | `success()` | All previous steps succeeded (default) |
 | `failure()` | At least one previous step failed |
 | `cancelled()` | The workflow was cancelled |
@@ -835,7 +835,7 @@ with:
 Each context is an object accessible as `${{ <context>.<property> }}`.
 
 | Context | Purpose | Available in |
-|---------|---------|--------------|
+| --- | --- | --- |
 | `github` | Event & repo metadata | All steps |
 | `job` | Current job status & containers | All steps |
 | `steps` | Outputs from earlier steps | Steps (same job) |
@@ -914,7 +914,6 @@ ${{ github.event.repository.fork }}               # true if this is a fork
 ```
 
 > `added`, `modified`, and `removed` are arrays — you can't use them directly in an `if:` expression, but you can inspect them in a `run:` step or via a custom action (e.g. `dorny/paths-filter`).
-
 
 ---
 
@@ -1220,7 +1219,7 @@ ${{ strategy.max-parallel }}   # Max simultaneous jobs (0 = unlimited)
 Not all contexts are fully populated for every trigger. Quick reference:
 
 | Context | `push` | `pull_request` | `workflow_dispatch` | `schedule` | `release` | `workflow_run` |
-|---------|:------:|:--------------:|:-------------------:|:----------:|:---------:|:--------------:|
+| --- | :------: | :--------------: | :-------------------: | :----------: | :---------: | :--------------: |
 | `github.sha` | Full SHA | PR merge SHA | Latest on branch | Latest on branch | Tag SHA | Triggering SHA |
 | `github.ref` | Branch/tag ref | `refs/pull/N/merge` | Branch ref | Branch ref | Tag ref | Branch ref |
 | `github.head_ref` | — | PR source branch | — | — | — | — |
@@ -1819,7 +1818,7 @@ jobs:
 ### Trigger → Branch Mapping
 
 | Goal | Trigger config |
-|---|---|
+| --- | --- |
 | Run on every push | `on: push` |
 | Run only on main | `on: push: branches: [main]` |
 | Run on feature branches | `on: push: branches: ['feature/**']` |
@@ -1831,7 +1830,7 @@ jobs:
 ### Job Execution Patterns
 
 | Pattern | Syntax |
-|---|---|
+| --- | --- |
 | Parallel (default) | Define multiple jobs with no `needs` |
 | Sequential A → B | `needs: a` on job B |
 | Fan-out A → B, C, D | `needs: a` on B, C, and D each |
