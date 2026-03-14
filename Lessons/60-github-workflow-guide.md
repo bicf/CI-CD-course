@@ -11,6 +11,10 @@
 2. [Anatomy of a Workflow File](#2-anatomy-of-a-workflow-file)
 3. [Triggers (`on`)](#3-triggers-on)
 4. [Runners (`runs-on`)](#4-runners-runs-on)
+   - [4.1 How to Register a Self-Hosted Runner](#41-how-to-register-a-self-hosted-runner)
+   - [4.2 How to Call a Self-Hosted Runner in a Workflow](#42-how-to-call-a-self-hosted-runner-in-a-workflow)
+   - [4.3 How to Create a Runner via the GitHub API](#43-how-to-create-a-runner-via-the-github-api-automated-provisioning)
+   - [4.4 How to Remove a Self-Hosted Runner](#44-how-to-remove-a-self-hosted-runner)
 5. [Steps — The Unit of Work](#5-steps--the-unit-of-work)
 6. [Sequential vs Parallel Jobs](#6-sequential-vs-parallel-jobs)
 7. [Dependent Jobs (`needs`)](#7-dependent-jobs-needs)
@@ -222,7 +226,7 @@ jobs:
 **Available GitHub-hosted runners:**
 
 | Label | OS | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `ubuntu-latest` | Ubuntu 22.04 | Fastest, cheapest, most tooling pre-installed |
 | `ubuntu-22.04` | Ubuntu 22.04 | Pin to a specific version |
 | `ubuntu-20.04` | Ubuntu 20.04 | Legacy support |
@@ -231,10 +235,194 @@ jobs:
 
 **Self-hosted runners:**
 
-```yaml
-runs-on: [self-hosted, linux, x64, gpu]
-# Labels allow targeting specific machine capabilities
+A self-hosted runner is a machine you own and operate that connects to GitHub to run workflow jobs. Use them when you need specific hardware (GPUs, high RAM), private network access, custom software, or want to avoid GitHub-hosted runner costs.
+
+### 4.1 How to Register a Self-Hosted Runner
+
+Runners are registered at three scopes:
+
+| Scope | Where to find it | Who can use it |
+| --- | --- | --- |
+| **Repository** | Repo → Settings → Actions → Runners | Only that repo |
+| **Organization** | Org → Settings → Actions → Runner groups | Any repo in the org |
+| **Enterprise** | Enterprise → Settings → Actions → Runners | Any org in the enterprise |
+
+**Step-by-step registration (Linux example):**
+
+1. Go to your repo (or org) → **Settings → Actions → Runners → New self-hosted runner**
+2. GitHub shows you a one-time registration token and download commands. Copy and run them on your machine:
+
+```bash
+# 1. Create a folder and download the runner agent
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-x64-2.316.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.316.0/actions-runner-linux-x64-2.316.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.316.0.tar.gz
+
+# 2. Configure the runner — this links it to your repo/org
+# The --token value comes from the GitHub UI (it expires after 1 hour)
+./config.sh \
+  --url https://github.com/YOUR_ORG/YOUR_REPO \
+  --token AXXXXXXXXXXXXXXXXXXXXXXXXX \
+  --name my-gpu-runner \          # display name in GitHub UI
+  --labels linux,x64,gpu \        # custom labels for targeting
+  --work _work                    # working directory for job files
+
+# 3. Start the runner (foreground — good for testing)
+./run.sh
 ```
+
+**Run as a persistent background service (recommended for production):**
+
+```bash
+# Install as a systemd service so it survives reboots
+sudo ./svc.sh install
+sudo ./svc.sh start
+
+# Check service status
+sudo ./svc.sh status
+
+# View logs
+journalctl -u actions.runner.YOUR_ORG-YOUR_REPO.my-gpu-runner -f
+```
+
+> **Security note:** Never run a self-hosted runner on a public repository. Anyone who can open a pull request could execute arbitrary code on your machine. For public repos, always use GitHub-hosted runners.
+
+---
+
+### 4.2 How to Call a Self-Hosted Runner in a Workflow
+
+Target a self-hosted runner using the `runs-on` key with labels. GitHub matches the job to any online runner that has **all** the listed labels.
+
+```yaml
+jobs:
+  # Target any self-hosted runner
+  basic:
+    runs-on: self-hosted
+
+  # Target a specific OS on a self-hosted runner
+  linux-job:
+    runs-on: [self-hosted, linux]
+
+  # Target a runner with specific hardware capabilities
+  gpu-training:
+    runs-on: [self-hosted, linux, x64, gpu]
+
+  # Target a custom named runner (set via --labels during registration)
+  deploy-prod:
+    runs-on: [self-hosted, production-deployer]
+```
+
+**Label matching rules:**
+
+```text
+Runner labels:    [self-hosted, linux, x64, gpu, production]
+
+runs-on: [self-hosted]                  → ✅ matches (subset)
+runs-on: [self-hosted, linux, gpu]      → ✅ matches (all present)
+runs-on: [self-hosted, linux, arm64]    → ❌ no match (arm64 not in runner's labels)
+runs-on: [self-hosted, staging]         → ❌ no match (staging not in runner's labels)
+```
+
+**Targeting runners within a runner group (org/enterprise only):**
+
+```yaml
+jobs:
+  deploy:
+    runs-on:
+      group: production-runners       # runner group name
+      labels: [linux, x64]            # further filter within the group
+```
+
+---
+
+### 4.3 How to Create a Runner via the GitHub API (Automated Provisioning)
+
+Instead of registering manually, you can automate runner creation — useful for ephemeral runners in cloud autoscaling setups.
+
+#### Step 1: Generate a registration token via the API
+
+```bash
+# For a repository runner
+curl -X POST \
+  -H "Authorization: Bearer YOUR_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/YOUR_ORG/YOUR_REPO/actions/runners/registration-token
+
+# Response contains a short-lived token:
+# { "token": "AXXXXXXXXXX", "expires_at": "2024-01-01T12:00:00Z" }
+```
+
+#### Step 2: Use the token in a startup script (e.g., cloud VM user-data)
+
+```bash
+#!/bin/bash
+# Cloud VM bootstrap script — creates an ephemeral runner on startup
+
+REPO_URL="https://github.com/YOUR_ORG/YOUR_REPO"
+REG_TOKEN="$(curl -s -X POST \
+  -H "Authorization: Bearer ${GITHUB_PAT}" \
+  -H "Accept: application/vnd.github+json" \
+  ${GITHUB_API_URL}/repos/YOUR_ORG/YOUR_REPO/actions/runners/registration-token \
+  | jq -r .token)"
+
+cd /home/runner/actions-runner
+./config.sh \
+  --url "$REPO_URL" \
+  --token "$REG_TOKEN" \
+  --name "ephemeral-$(hostname)" \
+  --labels linux,x64,ephemeral \
+  --ephemeral \          # runner exits after completing ONE job
+  --unattended           # non-interactive mode for scripts
+
+./run.sh
+```
+
+The `--ephemeral` flag tells the runner to de-register itself after finishing one job — ideal for autoscaling patterns where you spin up a fresh VM per job.
+
+---
+
+### 4.4 How to Remove a Self-Hosted Runner
+
+**Option A — From the GitHub UI:**
+
+1. Go to **Settings → Actions → Runners**
+2. Click the runner name → **Remove runner**
+3. GitHub shows a removal command to run on the machine (required if the runner is online):
+
+```bash
+# Run on the runner machine to cleanly de-register
+./config.sh remove --token REMOVAL_TOKEN_FROM_UI
+```
+
+**Option B — From the runner machine directly:**
+
+```bash
+# Stop the service first (if running as a service)
+sudo ./svc.sh stop
+sudo ./svc.sh uninstall
+
+# De-register (requires a removal token from the API or UI)
+./config.sh remove --token AXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+**Option C — Via the GitHub API (automated cleanup):**
+
+```bash
+# 1. Get the runner's numeric ID
+curl -H "Authorization: Bearer YOUR_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/YOUR_ORG/YOUR_REPO/actions/runners
+# Find "id": 12345 in the response for your runner
+
+# 2. Delete the runner by ID
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/YOUR_ORG/YOUR_REPO/actions/runners/12345
+```
+
+> **Tip:** If a runner goes offline without being de-registered (e.g., a VM was deleted), GitHub marks it as "offline." You can remove offline runners directly from the UI or API without needing a removal token.
 
 ---
 
@@ -522,7 +710,7 @@ steps:
 ### 8.3 Status Functions
 
 | Function | Evaluates to true when... |
-|---|---|
+| --- | --- |
 | `success()` | All previous steps succeeded (default) |
 | `failure()` | At least one previous step failed |
 | `cancelled()` | The workflow was cancelled |
@@ -644,55 +832,197 @@ with:
 
 ### 10.2 Key Contexts
 
-**`github` context** — information about the event that triggered the workflow:
+Each context is an object accessible as `${{ <context>.<property> }}`.
+
+| Context | Purpose | Available in |
+| --- | --- | --- |
+| `github` | Event & repo metadata | All steps |
+| `job` | Current job status & containers | All steps |
+| `steps` | Outputs from earlier steps | Steps (same job) |
+| `runner` | Runner machine info | All steps |
+| `needs` | Outputs from upstream jobs | All steps |
+| `matrix` | Current matrix cell values | All steps |
+| `strategy` | Matrix strategy metadata | All steps |
+| `env` | Environment variables (in expressions) | All steps |
+| `vars` | Repository/org non-secret variables | All steps |
+| `secrets` | Encrypted secrets | All steps |
+| `inputs` | `workflow_dispatch`/`workflow_call` inputs | All steps |
+
+---
+
+**`github` context** — event and repository metadata:
 
 ```yaml
-${{ github.repository }}       # "org/repo-name"
-${{ github.ref }}              # "refs/heads/main" or "refs/tags/v1.0.0"
-${{ github.ref_name }}         # "main" or "v1.0.0" (short name)
-${{ github.sha }}              # Full commit SHA
-${{ github.actor }}            # Username who triggered the event
-${{ github.event_name }}       # "push", "pull_request", "workflow_dispatch"
-${{ github.run_id }}           # Unique ID for this workflow run
-${{ github.run_number }}       # Auto-incrementing run count for this workflow
-${{ github.server_url }}       # "https://github.com"
-${{ github.workspace }}        # Path to checked-out repo on runner
+# --- Repository ---
+${{ github.repository }}               # "org/repo-name"
+${{ github.repository_owner }}         # "org" or username
+${{ github.server_url }}               # "https://github.com"
+${{ github.api_url }}                  # "https://api.github.com"
+
+# --- Ref / commit ---
+${{ github.sha }}                      # Full 40-char commit SHA
+${{ github.ref }}                      # "refs/heads/main" or "refs/tags/v1.0.0"
+${{ github.ref_name }}                 # "main" or "v1.0.0" (short name)
+${{ github.ref_type }}                 # "branch" or "tag"
+${{ github.head_ref }}                 # Source branch of a PR (e.g. "feature/login")
+${{ github.base_ref }}                 # Target branch of a PR (e.g. "main")
+${{ github.event.repository.default_branch }}  # "main"
+
+# --- Actor / trigger ---
+${{ github.actor }}                    # User who triggered the run
+${{ github.triggering_actor }}         # User who re-ran (may differ from actor)
+${{ github.event_name }}               # "push", "pull_request", "workflow_dispatch", etc.
+
+# --- Workflow / run ---
+${{ github.workflow }}                 # Workflow name as defined in the YAML
+${{ github.job }}                      # Current job ID (key in the jobs map)
+${{ github.run_id }}                   # Unique numeric ID for this run (stable across retries)
+${{ github.run_number }}               # Auto-incrementing run count for this workflow
+${{ github.run_attempt }}              # Retry count (1 = first attempt)
+
+# --- Paths / token ---
+${{ github.workspace }}                # Absolute path to checked-out repo on runner
+${{ github.token }}                    # Equivalent to secrets.GITHUB_TOKEN
+
+# --- Event payload: pull_request ---
+${{ github.event.pull_request.number }}           # PR number
+${{ github.event.pull_request.title }}            # PR title
+${{ github.event.pull_request.body }}             # PR description
+${{ github.event.pull_request.draft }}            # true if the PR is a draft
+${{ github.event.pull_request.merged }}           # true if the PR was merged
+${{ github.event.pull_request.head.sha }}         # Head commit SHA of the PR branch
+${{ github.event.pull_request.base.ref }}         # Target branch name (e.g. "main")
+${{ github.event.pull_request.user.login }}       # Author's GitHub username
+${{ github.event.pull_request.labels[*].name }}   # List of label names
+
+# --- Event payload: push / head_commit ---
+${{ github.event.head_commit.message }}           # Commit message
+${{ github.event.head_commit.author.name }}       # Author display name
+${{ github.event.head_commit.author.email }}      # Author email
+${{ github.event.head_commit.author.username }}   # Author GitHub username
+${{ github.event.head_commit.added }}             # Array of added file paths
+${{ github.event.head_commit.modified }}          # Array of modified file paths
+${{ github.event.head_commit.removed }}           # Array of removed file paths
+${{ github.event.commits[0].message }}            # First commit message in the push
+${{ github.event.forced }}                        # true if the push was a force-push
+${{ github.event.compare }}                       # URL to compare view for the push
+
+# --- Event payload: repository ---
+${{ github.event.repository.default_branch }}     # "main"
+${{ github.event.repository.visibility }}         # "public" or "private"
+${{ github.event.repository.fork }}               # true if this is a fork
 ```
 
-**`job` context** — the current job's status:
+> `added`, `modified`, and `removed` are arrays — you can't use them directly in an `if:` expression, but you can inspect them in a `run:` step or via a custom action (e.g. `dorny/paths-filter`).
+
+---
+
+**`runner` context** — the machine executing the job:
 
 ```yaml
-${{ job.status }}              # "success", "failure", "cancelled"
+${{ runner.os }}           # "Linux", "Windows", or "macOS"
+${{ runner.arch }}         # "X64" or "ARM64"
+${{ runner.name }}         # Runner name (e.g. "GitHub Actions 2")
+${{ runner.temp }}         # Temp directory — cleaned after each job
+${{ runner.tool_cache }}   # Directory for pre-installed tool versions
 ```
+
+> Useful in cross-platform matrix jobs: `if: runner.os == 'Windows'`
+
+---
+
+**`job` context** — the current job:
+
+```yaml
+${{ job.status }}                  # "success", "failure", "cancelled"
+${{ job.container.id }}            # Container ID (when using a job-level container)
+${{ job.services.<id>.id }}        # Service container ID
+${{ job.services.<id>.ports }}     # Mapped ports for a service container
+```
+
+---
 
 **`steps` context** — outputs from earlier steps in the same job:
 
 ```yaml
 ${{ steps.<step-id>.outputs.<output-name> }}
 ${{ steps.<step-id>.outcome }}     # "success", "failure", "skipped", "cancelled"
-${{ steps.<step-id>.conclusion }}  # final status after continue-on-error
+                                   # (before continue-on-error adjusts it)
+${{ steps.<step-id>.conclusion }}  # Final status after continue-on-error is applied
 ```
 
-**`needs` context** — outputs from upstream jobs:
+---
+
+**`needs` context** — results and outputs from upstream jobs:
 
 ```yaml
-${{ needs.<job-id>.outputs.<output-name> }}
-${{ needs.<job-id>.result }}       # "success", "failure", "skipped", "cancelled"
+${{ needs.<job-id>.result }}              # "success", "failure", "skipped", "cancelled"
+${{ needs.<job-id>.outputs.<name> }}      # Outputs the job explicitly defined
+
+# Combine multiple upstream checks:
+if: needs.build.result == 'success' && needs.lint.result == 'success'
 ```
 
-**`matrix` context** — current matrix cell values:
+---
+
+**`matrix` context** — values for the current matrix cell:
 
 ```yaml
-${{ matrix.node-version }}
 ${{ matrix.os }}
+${{ matrix.node-version }}
+# Also includes any extra keys added via `include:`
 ```
+
+---
+
+**`strategy` context** — metadata about the matrix run:
+
+```yaml
+${{ strategy.fail-fast }}     # true/false — whether a failing job cancels the rest
+${{ strategy.job-index }}     # 0-based index of this job in the matrix
+${{ strategy.job-total }}     # Total number of matrix jobs
+${{ strategy.max-parallel }}  # Max jobs allowed to run concurrently
+```
+
+> `strategy.job-index == 0` is a clean way to run a setup step only once across a matrix.
+
+---
+
+**`env` context** — reference environment variables inside non-`run` YAML fields:
+
+```yaml
+env:
+  DEPLOY_TARGET: production
+
+steps:
+  - if: env.DEPLOY_TARGET == 'production'   # ✓ use env context in expressions
+    run: ./run-extra-checks.sh
+  - run: echo "$DEPLOY_TARGET"              # ✓ use shell syntax inside run scripts
+```
+
+> In `run:` scripts, use `$VAR` (shell). In YAML fields like `if:`, use `${{ env.VAR }}`.
+
+---
+
+**`vars` context** — non-secret configuration values (Settings → Secrets and variables → Variables):
+
+```yaml
+${{ vars.DEPLOY_HOST }}
+${{ vars.NODE_ENV }}
+```
+
+> Values are visible in logs. Use `secrets` for anything sensitive.
+
+---
 
 **`secrets` context** — encrypted secrets:
 
 ```yaml
 ${{ secrets.MY_TOKEN }}
-${{ secrets.GITHUB_TOKEN }}        # auto-provided, no setup needed
+${{ secrets.GITHUB_TOKEN }}        # Auto-provided for every run — no setup needed
 ```
+
+---
 
 **`inputs` context** — `workflow_dispatch` or `workflow_call` inputs:
 
@@ -700,6 +1030,277 @@ ${{ secrets.GITHUB_TOKEN }}        # auto-provided, no setup needed
 ${{ inputs.environment }}
 ${{ inputs.debug }}
 ```
+
+> Both `${{ inputs.x }}` and `${{ github.event.inputs.x }}` work for `workflow_dispatch`, but `inputs` is preferred — it also works for reusable workflows.
+
+---
+
+**`github` context — extended properties:**
+
+```yaml
+# --- Action identity (useful inside composite/reusable actions) ---
+${{ github.action }}               # ID of the currently running action (e.g. "__run")
+${{ github.action_path }}          # Absolute path to the composite action directory
+${{ github.action_ref }}           # Ref of the action being used (e.g. "v3")
+${{ github.action_repository }}    # "owner/repo" of the action being used
+
+# --- Workflow identity ---
+${{ github.workflow_ref }}         # Full ref of the workflow file (e.g. "org/repo/.github/workflows/ci.yml@refs/heads/main")
+${{ github.workflow_sha }}         # SHA of the workflow file being run
+
+# --- URLs ---
+${{ github.graphql_url }}          # "https://api.github.com/graphql"
+
+# --- Misc ---
+${{ github.event_path }}           # Absolute path to the full event JSON payload on disk
+${{ github.retention_days }}       # Default artifact retention in days for this repo
+```
+
+---
+
+**`github` context — more event payloads:**
+
+```yaml
+# --- release event ---
+${{ github.event.release.tag_name }}          # "v1.2.3"
+${{ github.event.release.name }}              # Release title
+${{ github.event.release.body }}              # Release notes
+${{ github.event.release.draft }}             # true if this is a draft release
+${{ github.event.release.prerelease }}        # true if marked as pre-release
+${{ github.event.release.html_url }}          # URL to the GitHub release page
+${{ github.event.release.upload_url }}        # URL to upload release assets
+${{ github.event.release.target_commitish }}  # Branch/SHA the release targets
+${{ github.event.release.author.login }}      # Publisher's GitHub username
+
+# --- issues event ---
+${{ github.event.issue.number }}              # Issue number
+${{ github.event.issue.title }}               # Issue title
+${{ github.event.issue.body }}                # Issue body
+${{ github.event.issue.state }}               # "open" or "closed"
+${{ github.event.issue.user.login }}          # Issue author
+${{ github.event.issue.labels[*].name }}      # List of label names
+${{ github.event.issue.assignees[*].login }}  # Assigned usernames
+${{ github.event.issue.milestone.title }}     # Milestone name (if set)
+${{ github.event.action }}                    # "opened", "closed", "labeled", etc.
+
+# --- issue_comment event ---
+${{ github.event.comment.id }}                # Comment ID
+${{ github.event.comment.body }}              # Comment text
+${{ github.event.comment.user.login }}        # Commenter username
+${{ github.event.comment.html_url }}          # URL to the comment
+
+# --- workflow_run event ---
+${{ github.event.workflow_run.name }}             # Triggering workflow name
+${{ github.event.workflow_run.status }}           # "completed", "in_progress", etc.
+${{ github.event.workflow_run.conclusion }}       # "success", "failure", "cancelled", etc.
+${{ github.event.workflow_run.head_branch }}      # Branch of the triggering run
+${{ github.event.workflow_run.head_sha }}         # Commit SHA of the triggering run
+${{ github.event.workflow_run.run_number }}       # Run number of the triggering workflow
+${{ github.event.workflow_run.html_url }}         # URL to the triggering run
+
+# --- create / delete events (branch or tag created/deleted) ---
+${{ github.event.ref }}                       # Name of the branch or tag
+${{ github.event.ref_type }}                  # "branch" or "tag"
+${{ github.event.master_branch }}             # Default branch of the repo
+
+# --- deployment event ---
+${{ github.event.deployment.id }}             # Deployment ID
+${{ github.event.deployment.environment }}    # Target environment name (e.g. "production")
+${{ github.event.deployment.payload }}        # Custom payload passed to the deployment
+${{ github.event.deployment.sha }}            # SHA being deployed
+${{ github.event.deployment.ref }}            # Branch/tag ref being deployed
+${{ github.event.deployment.task }}           # Task type (usually "deploy")
+
+# --- registry_package event (GitHub Packages) ---
+${{ github.event.registry_package.name }}         # Package name
+${{ github.event.registry_package.package_type }} # "npm", "docker", "maven", etc.
+${{ github.event.registry_package.package_version.version }}  # Version string
+
+# --- schedule event (no payload — use github context instead) ---
+# github.event is an empty object for scheduled runs.
+# Use github.ref_name to know which branch the schedule ran on.
+```
+
+---
+
+**`runner` context — extended properties:**
+
+```yaml
+${{ runner.os }}           # "Linux", "Windows", or "macOS"
+${{ runner.arch }}         # "X64" or "ARM64"
+${{ runner.name }}         # Runner name (e.g. "GitHub Actions 2" or your self-hosted name)
+${{ runner.temp }}         # Temp directory — wiped after each job
+${{ runner.tool_cache }}   # Pre-installed tool versions (used by setup-* actions)
+${{ runner.environment }}  # "github-hosted" or "self-hosted"
+${{ runner.debug }}        # "1" when debug logging is enabled (via secret ACTIONS_STEP_DEBUG)
+```
+
+> Check `runner.debug == '1'` in an `if:` to enable verbose output only during debug reruns.
+
+---
+
+**`job` context — extended properties:**
+
+```yaml
+${{ job.status }}                     # "success", "failure", "cancelled"
+${{ job.container.id }}               # Docker container ID (when using job-level container:)
+${{ job.container.network }}          # Docker network name for the job container
+${{ job.services.<id>.id }}           # Service container Docker ID
+${{ job.services.<id>.network }}      # Network name for the service container
+${{ job.services.<id>.ports }}        # Map of exposed → host ports (e.g. {"5432": "5432"})
+```
+
+---
+
+**`steps` context — extended properties:**
+
+```yaml
+${{ steps.<step-id>.outputs.<name> }}   # Named output set via GITHUB_OUTPUT
+${{ steps.<step-id>.outcome }}          # Raw result before continue-on-error:
+                                        #   "success" | "failure" | "skipped" | "cancelled"
+${{ steps.<step-id>.conclusion }}       # Final result after continue-on-error is applied
+                                        #   (same values; differs when continue-on-error: true)
+```
+
+> `outcome` vs `conclusion`: if a step fails but has `continue-on-error: true`, `outcome` is `"failure"` and `conclusion` is `"success"`.
+
+---
+
+**`needs` context — extended properties:**
+
+```yaml
+${{ needs.<job-id>.result }}            # "success" | "failure" | "skipped" | "cancelled"
+${{ needs.<job-id>.outputs.<name> }}    # Job-level output (must be declared under jobs.<id>.outputs)
+
+# Pattern: gate a deploy on all upstream jobs passing
+if: |
+  needs.lint.result == 'success' &&
+  needs.test.result == 'success' &&
+  needs.build.result == 'success'
+
+# Pattern: run cleanup even when upstream jobs fail
+if: always() && needs.deploy.result == 'failure'
+```
+
+---
+
+**`matrix` context — extended properties:**
+
+```yaml
+${{ matrix.<key> }}          # Any dimension defined in strategy.matrix (e.g. matrix.os, matrix.node)
+
+# Extra keys injected by include: blocks are also available:
+# strategy:
+#   matrix:
+#     os: [ubuntu-latest, windows-latest]
+#     include:
+#       - os: ubuntu-latest
+#         label: Linux
+${{ matrix.label }}          # "Linux" — only on the ubuntu-latest cell
+```
+
+---
+
+**`strategy` context — extended properties:**
+
+```yaml
+${{ strategy.fail-fast }}      # true/false — whether one failing job cancels the rest
+${{ strategy.job-index }}      # 0-based index of the current job within the matrix
+${{ strategy.job-total }}      # Total number of matrix combinations
+${{ strategy.max-parallel }}   # Max simultaneous jobs (0 = unlimited)
+```
+
+> `strategy.job-index == 0` is a reliable way to run a one-time setup step in a matrix.
+
+---
+
+### 10.2.1 Context Availability by Trigger
+
+Not all contexts are fully populated for every trigger. Quick reference:
+
+| Context | `push` | `pull_request` | `workflow_dispatch` | `schedule` | `release` | `workflow_run` |
+| --- | :------: | :--------------: | :-------------------: | :----------: | :---------: | :--------------: |
+| `github.sha` | Full SHA | PR merge SHA | Latest on branch | Latest on branch | Tag SHA | Triggering SHA |
+| `github.ref` | Branch/tag ref | `refs/pull/N/merge` | Branch ref | Branch ref | Tag ref | Branch ref |
+| `github.head_ref` | — | PR source branch | — | — | — | — |
+| `github.base_ref` | — | PR target branch | — | — | — | — |
+| `github.event.*` | Push payload | PR payload | Dispatch inputs | Empty | Release payload | Workflow run payload |
+| `inputs` | — | — | Dispatch inputs | — | — | — |
+
+---
+
+### 10.2.2 Special Built-in Environment Variables
+
+GitHub populates these shell variables on every runner — they mirror the `github.*` context but are usable in any script without `${{ }}` syntax:
+
+```bash
+# Repository
+GITHUB_REPOSITORY          # "org/repo"
+GITHUB_REPOSITORY_OWNER    # "org" or username
+GITHUB_SERVER_URL          # "https://github.com"
+GITHUB_API_URL             # "https://api.github.com"
+GITHUB_GRAPHQL_URL         # "https://api.github.com/graphql"
+
+# Ref / commit
+GITHUB_SHA                 # Full 40-char commit SHA
+GITHUB_REF                 # "refs/heads/main" or "refs/tags/v1.0.0"
+GITHUB_REF_NAME            # "main" or "v1.0.0"
+GITHUB_REF_TYPE            # "branch" or "tag"
+GITHUB_HEAD_REF            # PR source branch (pull_request only)
+GITHUB_BASE_REF            # PR target branch (pull_request only)
+
+# Actor / trigger
+GITHUB_ACTOR               # Username who triggered the run
+GITHUB_EVENT_NAME          # "push", "pull_request", "workflow_dispatch", etc.
+GITHUB_EVENT_PATH          # Absolute path to the full event JSON on disk
+
+# Workflow / run
+GITHUB_WORKFLOW            # Workflow name
+GITHUB_JOB                 # Current job ID
+GITHUB_RUN_ID              # Unique ID for this run
+GITHUB_RUN_NUMBER          # Auto-incrementing count for this workflow
+GITHUB_RUN_ATTEMPT         # Retry count (1 = first attempt)
+GITHUB_WORKFLOW_REF        # Full ref of the workflow file
+
+# Paths
+GITHUB_WORKSPACE           # Absolute path to the checked-out repo
+GITHUB_ACTION_PATH         # Absolute path to the composite action directory
+RUNNER_TEMP                # Temp directory (wiped between jobs)
+RUNNER_TOOL_CACHE          # Pre-installed tool cache directory
+
+# Magic files (append to these to affect subsequent steps)
+GITHUB_ENV                 # Append "KEY=VALUE" to set env vars for later steps
+GITHUB_OUTPUT              # Append "name=value" to set step outputs
+GITHUB_STEP_SUMMARY        # Append Markdown to post a job summary in the UI
+GITHUB_PATH                # Append a path to prepend it to PATH for later steps
+
+# Status flags
+CI                         # Always "true" on GitHub-hosted runners
+GITHUB_ACTIONS             # Always "true" when running inside GitHub Actions
+RUNNER_DEBUG               # "1" when debug logging is enabled; unset otherwise
+```
+
+**Using the magic files:**
+
+```bash
+# Set an env variable for subsequent steps
+echo "VERSION=1.2.3" >> "$GITHUB_ENV"
+
+# Set a step output
+echo "image-tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+# Write a job summary (Markdown rendered in the Actions UI)
+echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
+echo "- Passed: 142" >> "$GITHUB_STEP_SUMMARY"
+echo "- Failed: 0"   >> "$GITHUB_STEP_SUMMARY"
+
+# Add a tool to PATH for later steps
+echo "/opt/my-tool/bin" >> "$GITHUB_PATH"
+```
+
+> All magic files use the `KEY=VALUE` or plain-line format — never `export KEY=VALUE`. Each append takes effect at the **start of the next step**, not within the same `run:` block.
+
+---
 
 ### 10.3 Setting Dynamic Variables Mid-Job
 
@@ -1217,7 +1818,7 @@ jobs:
 ### Trigger → Branch Mapping
 
 | Goal | Trigger config |
-|---|---|
+| --- | --- |
 | Run on every push | `on: push` |
 | Run only on main | `on: push: branches: [main]` |
 | Run on feature branches | `on: push: branches: ['feature/**']` |
@@ -1229,7 +1830,7 @@ jobs:
 ### Job Execution Patterns
 
 | Pattern | Syntax |
-|---|---|
+| --- | --- |
 | Parallel (default) | Define multiple jobs with no `needs` |
 | Sequential A → B | `needs: a` on job B |
 | Fan-out A → B, C, D | `needs: a` on B, C, and D each |

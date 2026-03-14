@@ -75,7 +75,7 @@ Repository:
 ```
 
 | File | Responsibility | Runs on |
-|------|---------------|---------|
+| --- | --- | --- |
 | `Dockerfile` | How to build the image, layer by layer | Docker daemon on the CI runner |
 | `.dockerignore` | Which files to exclude from the build context | Docker daemon, before any layer |
 | `docker.yml` | When to trigger the build, how to authenticate, where to push | GitHub Actions runner |

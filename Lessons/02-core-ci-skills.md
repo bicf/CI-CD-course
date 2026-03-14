@@ -3,7 +3,7 @@
 ## 2.1 CI Platform Comparison
 
 | Platform | Config File | Free Tier (cloud) | Self-hostable | Best For |
-|----------|-------------|-------------------|---------------|----------|
+| --- | --- | --- | --- | --- |
 | **GitHub Actions** | `.github/workflows/*.yml` | 2,000 min/mo (public repos: unlimited) | ✅ | GitHub projects |
 | **GitLab CI/CD** | `.gitlab-ci.yml` | 400 min/mo | ✅ | Full DevOps suite |
 | **Jenkins** | `Jenkinsfile` | ❌ (no cloud offering) | ✅ free | Enterprise customization |
@@ -36,7 +36,7 @@ Example pipeline with 3 parallel jobs, each taking 5 minutes:
 Runner OS also affects billing on some platforms. GitHub Actions applies a multiplier to non-Linux runners:
 
 | OS | GitHub Actions multiplier |
-|----|--------------------------|
+| --- | --- |
 | Linux (ubuntu-*) | 1× (base rate) |
 | Windows (windows-*) | 2× |
 | macOS (macos-*) | 10× |
