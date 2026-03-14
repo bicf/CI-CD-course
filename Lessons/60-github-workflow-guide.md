@@ -832,55 +832,172 @@ with:
 
 ### 10.2 Key Contexts
 
-**`github` context** — information about the event that triggered the workflow:
+Each context is an object accessible as `${{ <context>.<property> }}`.
+
+| Context | Purpose | Available in |
+|---------|---------|--------------|
+| `github` | Event & repo metadata | All steps |
+| `job` | Current job status & containers | All steps |
+| `steps` | Outputs from earlier steps | Steps (same job) |
+| `runner` | Runner machine info | All steps |
+| `needs` | Outputs from upstream jobs | All steps |
+| `matrix` | Current matrix cell values | All steps |
+| `strategy` | Matrix strategy metadata | All steps |
+| `env` | Environment variables (in expressions) | All steps |
+| `vars` | Repository/org non-secret variables | All steps |
+| `secrets` | Encrypted secrets | All steps |
+| `inputs` | `workflow_dispatch`/`workflow_call` inputs | All steps |
+
+---
+
+**`github` context** — event and repository metadata:
 
 ```yaml
-${{ github.repository }}       # "org/repo-name"
-${{ github.ref }}              # "refs/heads/main" or "refs/tags/v1.0.0"
-${{ github.ref_name }}         # "main" or "v1.0.0" (short name)
-${{ github.sha }}              # Full commit SHA
-${{ github.actor }}            # Username who triggered the event
-${{ github.event_name }}       # "push", "pull_request", "workflow_dispatch"
-${{ github.run_id }}           # Unique ID for this workflow run
-${{ github.run_number }}       # Auto-incrementing run count for this workflow
-${{ github.server_url }}       # "https://github.com"
-${{ github.workspace }}        # Path to checked-out repo on runner
+# --- Repository ---
+${{ github.repository }}               # "org/repo-name"
+${{ github.repository_owner }}         # "org" or username
+${{ github.server_url }}               # "https://github.com"
+${{ github.api_url }}                  # "https://api.github.com"
+
+# --- Ref / commit ---
+${{ github.sha }}                      # Full 40-char commit SHA
+${{ github.ref }}                      # "refs/heads/main" or "refs/tags/v1.0.0"
+${{ github.ref_name }}                 # "main" or "v1.0.0" (short name)
+${{ github.ref_type }}                 # "branch" or "tag"
+${{ github.head_ref }}                 # Source branch of a PR (e.g. "feature/login")
+${{ github.base_ref }}                 # Target branch of a PR (e.g. "main")
+${{ github.event.repository.default_branch }}  # "main"
+
+# --- Actor / trigger ---
+${{ github.actor }}                    # User who triggered the run
+${{ github.triggering_actor }}         # User who re-ran (may differ from actor)
+${{ github.event_name }}               # "push", "pull_request", "workflow_dispatch", etc.
+
+# --- Workflow / run ---
+${{ github.workflow }}                 # Workflow name as defined in the YAML
+${{ github.job }}                      # Current job ID (key in the jobs map)
+${{ github.run_id }}                   # Unique numeric ID for this run (stable across retries)
+${{ github.run_number }}               # Auto-incrementing run count for this workflow
+${{ github.run_attempt }}              # Retry count (1 = first attempt)
+
+# --- Paths / token ---
+${{ github.workspace }}                # Absolute path to checked-out repo on runner
+${{ github.token }}                    # Equivalent to secrets.GITHUB_TOKEN
+
+# --- Event payload (examples) ---
+${{ github.event.pull_request.number }}    # PR number
+${{ github.event.pull_request.title }}     # PR title
+${{ github.event.head_commit.message }}    # Commit message on a push event
 ```
 
-**`job` context** — the current job's status:
+---
+
+**`runner` context** — the machine executing the job:
 
 ```yaml
-${{ job.status }}              # "success", "failure", "cancelled"
+${{ runner.os }}           # "Linux", "Windows", or "macOS"
+${{ runner.arch }}         # "X64" or "ARM64"
+${{ runner.name }}         # Runner name (e.g. "GitHub Actions 2")
+${{ runner.temp }}         # Temp directory — cleaned after each job
+${{ runner.tool_cache }}   # Directory for pre-installed tool versions
 ```
+
+> Useful in cross-platform matrix jobs: `if: runner.os == 'Windows'`
+
+---
+
+**`job` context** — the current job:
+
+```yaml
+${{ job.status }}                  # "success", "failure", "cancelled"
+${{ job.container.id }}            # Container ID (when using a job-level container)
+${{ job.services.<id>.id }}        # Service container ID
+${{ job.services.<id>.ports }}     # Mapped ports for a service container
+```
+
+---
 
 **`steps` context** — outputs from earlier steps in the same job:
 
 ```yaml
 ${{ steps.<step-id>.outputs.<output-name> }}
 ${{ steps.<step-id>.outcome }}     # "success", "failure", "skipped", "cancelled"
-${{ steps.<step-id>.conclusion }}  # final status after continue-on-error
+                                   # (before continue-on-error adjusts it)
+${{ steps.<step-id>.conclusion }}  # Final status after continue-on-error is applied
 ```
 
-**`needs` context** — outputs from upstream jobs:
+---
+
+**`needs` context** — results and outputs from upstream jobs:
 
 ```yaml
-${{ needs.<job-id>.outputs.<output-name> }}
-${{ needs.<job-id>.result }}       # "success", "failure", "skipped", "cancelled"
+${{ needs.<job-id>.result }}              # "success", "failure", "skipped", "cancelled"
+${{ needs.<job-id>.outputs.<name> }}      # Outputs the job explicitly defined
+
+# Combine multiple upstream checks:
+if: needs.build.result == 'success' && needs.lint.result == 'success'
 ```
 
-**`matrix` context** — current matrix cell values:
+---
+
+**`matrix` context** — values for the current matrix cell:
 
 ```yaml
-${{ matrix.node-version }}
 ${{ matrix.os }}
+${{ matrix.node-version }}
+# Also includes any extra keys added via `include:`
 ```
+
+---
+
+**`strategy` context** — metadata about the matrix run:
+
+```yaml
+${{ strategy.fail-fast }}     # true/false — whether a failing job cancels the rest
+${{ strategy.job-index }}     # 0-based index of this job in the matrix
+${{ strategy.job-total }}     # Total number of matrix jobs
+${{ strategy.max-parallel }}  # Max jobs allowed to run concurrently
+```
+
+> `strategy.job-index == 0` is a clean way to run a setup step only once across a matrix.
+
+---
+
+**`env` context** — reference environment variables inside non-`run` YAML fields:
+
+```yaml
+env:
+  DEPLOY_TARGET: production
+
+steps:
+  - if: env.DEPLOY_TARGET == 'production'   # ✓ use env context in expressions
+    run: ./run-extra-checks.sh
+  - run: echo "$DEPLOY_TARGET"              # ✓ use shell syntax inside run scripts
+```
+
+> In `run:` scripts, use `$VAR` (shell). In YAML fields like `if:`, use `${{ env.VAR }}`.
+
+---
+
+**`vars` context** — non-secret configuration values (Settings → Secrets and variables → Variables):
+
+```yaml
+${{ vars.DEPLOY_HOST }}
+${{ vars.NODE_ENV }}
+```
+
+> Values are visible in logs. Use `secrets` for anything sensitive.
+
+---
 
 **`secrets` context** — encrypted secrets:
 
 ```yaml
 ${{ secrets.MY_TOKEN }}
-${{ secrets.GITHUB_TOKEN }}        # auto-provided, no setup needed
+${{ secrets.GITHUB_TOKEN }}        # Auto-provided for every run — no setup needed
 ```
+
+---
 
 **`inputs` context** — `workflow_dispatch` or `workflow_call` inputs:
 
@@ -888,6 +1005,8 @@ ${{ secrets.GITHUB_TOKEN }}        # auto-provided, no setup needed
 ${{ inputs.environment }}
 ${{ inputs.debug }}
 ```
+
+> Both `${{ inputs.x }}` and `${{ github.event.inputs.x }}` work for `workflow_dispatch`, but `inputs` is preferred — it also works for reusable workflows.
 
 ### 10.3 Setting Dynamic Variables Mid-Job
 
