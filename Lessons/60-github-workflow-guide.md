@@ -11,6 +11,10 @@
 2. [Anatomy of a Workflow File](#2-anatomy-of-a-workflow-file)
 3. [Triggers (`on`)](#3-triggers-on)
 4. [Runners (`runs-on`)](#4-runners-runs-on)
+   - [4.1 How to Register a Self-Hosted Runner](#41-how-to-register-a-self-hosted-runner)
+   - [4.2 How to Call a Self-Hosted Runner in a Workflow](#42-how-to-call-a-self-hosted-runner-in-a-workflow)
+   - [4.3 How to Create a Runner via the GitHub API](#43-how-to-create-a-runner-via-the-github-api-automated-provisioning)
+   - [4.4 How to Remove a Self-Hosted Runner](#44-how-to-remove-a-self-hosted-runner)
 5. [Steps — The Unit of Work](#5-steps--the-unit-of-work)
 6. [Sequential vs Parallel Jobs](#6-sequential-vs-parallel-jobs)
 7. [Dependent Jobs (`needs`)](#7-dependent-jobs-needs)
@@ -231,10 +235,194 @@ jobs:
 
 **Self-hosted runners:**
 
-```yaml
-runs-on: [self-hosted, linux, x64, gpu]
-# Labels allow targeting specific machine capabilities
+A self-hosted runner is a machine you own and operate that connects to GitHub to run workflow jobs. Use them when you need specific hardware (GPUs, high RAM), private network access, custom software, or want to avoid GitHub-hosted runner costs.
+
+### 4.1 How to Register a Self-Hosted Runner
+
+Runners are registered at three scopes:
+
+| Scope | Where to find it | Who can use it |
+|---|---|---|
+| **Repository** | Repo → Settings → Actions → Runners | Only that repo |
+| **Organization** | Org → Settings → Actions → Runner groups | Any repo in the org |
+| **Enterprise** | Enterprise → Settings → Actions → Runners | Any org in the enterprise |
+
+**Step-by-step registration (Linux example):**
+
+1. Go to your repo (or org) → **Settings → Actions → Runners → New self-hosted runner**
+2. GitHub shows you a one-time registration token and download commands. Copy and run them on your machine:
+
+```bash
+# 1. Create a folder and download the runner agent
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-x64-2.316.0.tar.gz -L \
+  https://github.com/actions/runner/releases/download/v2.316.0/actions-runner-linux-x64-2.316.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.316.0.tar.gz
+
+# 2. Configure the runner — this links it to your repo/org
+# The --token value comes from the GitHub UI (it expires after 1 hour)
+./config.sh \
+  --url https://github.com/YOUR_ORG/YOUR_REPO \
+  --token AXXXXXXXXXXXXXXXXXXXXXXXXX \
+  --name my-gpu-runner \          # display name in GitHub UI
+  --labels linux,x64,gpu \        # custom labels for targeting
+  --work _work                    # working directory for job files
+
+# 3. Start the runner (foreground — good for testing)
+./run.sh
 ```
+
+**Run as a persistent background service (recommended for production):**
+
+```bash
+# Install as a systemd service so it survives reboots
+sudo ./svc.sh install
+sudo ./svc.sh start
+
+# Check service status
+sudo ./svc.sh status
+
+# View logs
+journalctl -u actions.runner.YOUR_ORG-YOUR_REPO.my-gpu-runner -f
+```
+
+> **Security note:** Never run a self-hosted runner on a public repository. Anyone who can open a pull request could execute arbitrary code on your machine. For public repos, always use GitHub-hosted runners.
+
+---
+
+### 4.2 How to Call a Self-Hosted Runner in a Workflow
+
+Target a self-hosted runner using the `runs-on` key with labels. GitHub matches the job to any online runner that has **all** the listed labels.
+
+```yaml
+jobs:
+  # Target any self-hosted runner
+  basic:
+    runs-on: self-hosted
+
+  # Target a specific OS on a self-hosted runner
+  linux-job:
+    runs-on: [self-hosted, linux]
+
+  # Target a runner with specific hardware capabilities
+  gpu-training:
+    runs-on: [self-hosted, linux, x64, gpu]
+
+  # Target a custom named runner (set via --labels during registration)
+  deploy-prod:
+    runs-on: [self-hosted, production-deployer]
+```
+
+**Label matching rules:**
+
+```text
+Runner labels:    [self-hosted, linux, x64, gpu, production]
+
+runs-on: [self-hosted]                  → ✅ matches (subset)
+runs-on: [self-hosted, linux, gpu]      → ✅ matches (all present)
+runs-on: [self-hosted, linux, arm64]    → ❌ no match (arm64 not in runner's labels)
+runs-on: [self-hosted, staging]         → ❌ no match (staging not in runner's labels)
+```
+
+**Targeting runners within a runner group (org/enterprise only):**
+
+```yaml
+jobs:
+  deploy:
+    runs-on:
+      group: production-runners       # runner group name
+      labels: [linux, x64]            # further filter within the group
+```
+
+---
+
+### 4.3 How to Create a Runner via the GitHub API (Automated Provisioning)
+
+Instead of registering manually, you can automate runner creation — useful for ephemeral runners in cloud autoscaling setups.
+
+**Step 1: Generate a registration token via the API**
+
+```bash
+# For a repository runner
+curl -X POST \
+  -H "Authorization: Bearer YOUR_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/YOUR_ORG/YOUR_REPO/actions/runners/registration-token
+
+# Response contains a short-lived token:
+# { "token": "AXXXXXXXXXX", "expires_at": "2024-01-01T12:00:00Z" }
+```
+
+**Step 2: Use the token in a startup script (e.g., cloud VM user-data)**
+
+```bash
+#!/bin/bash
+# Cloud VM bootstrap script — creates an ephemeral runner on startup
+
+REPO_URL="https://github.com/YOUR_ORG/YOUR_REPO"
+REG_TOKEN="$(curl -s -X POST \
+  -H "Authorization: Bearer ${GITHUB_PAT}" \
+  -H "Accept: application/vnd.github+json" \
+  ${GITHUB_API_URL}/repos/YOUR_ORG/YOUR_REPO/actions/runners/registration-token \
+  | jq -r .token)"
+
+cd /home/runner/actions-runner
+./config.sh \
+  --url "$REPO_URL" \
+  --token "$REG_TOKEN" \
+  --name "ephemeral-$(hostname)" \
+  --labels linux,x64,ephemeral \
+  --ephemeral \          # runner exits after completing ONE job
+  --unattended           # non-interactive mode for scripts
+
+./run.sh
+```
+
+The `--ephemeral` flag tells the runner to de-register itself after finishing one job — ideal for autoscaling patterns where you spin up a fresh VM per job.
+
+---
+
+### 4.4 How to Remove a Self-Hosted Runner
+
+**Option A — From the GitHub UI:**
+
+1. Go to **Settings → Actions → Runners**
+2. Click the runner name → **Remove runner**
+3. GitHub shows a removal command to run on the machine (required if the runner is online):
+
+```bash
+# Run on the runner machine to cleanly de-register
+./config.sh remove --token REMOVAL_TOKEN_FROM_UI
+```
+
+**Option B — From the runner machine directly:**
+
+```bash
+# Stop the service first (if running as a service)
+sudo ./svc.sh stop
+sudo ./svc.sh uninstall
+
+# De-register (requires a removal token from the API or UI)
+./config.sh remove --token AXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+**Option C — Via the GitHub API (automated cleanup):**
+
+```bash
+# 1. Get the runner's numeric ID
+curl -H "Authorization: Bearer YOUR_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/YOUR_ORG/YOUR_REPO/actions/runners
+# Find "id": 12345 in the response for your runner
+
+# 2. Delete the runner by ID
+curl -X DELETE \
+  -H "Authorization: Bearer YOUR_PAT" \
+  -H "Accept: application/vnd.github+json" \
+  https://api.github.com/repos/YOUR_ORG/YOUR_REPO/actions/runners/12345
+```
+
+> **Tip:** If a runner goes offline without being de-registered (e.g., a VM was deleted), GitHub marks it as "offline." You can remove offline runners directly from the UI or API without needing a removal token.
 
 ---
 
