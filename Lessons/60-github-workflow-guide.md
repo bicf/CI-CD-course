@@ -884,11 +884,37 @@ ${{ github.run_attempt }}              # Retry count (1 = first attempt)
 ${{ github.workspace }}                # Absolute path to checked-out repo on runner
 ${{ github.token }}                    # Equivalent to secrets.GITHUB_TOKEN
 
-# --- Event payload (examples) ---
-${{ github.event.pull_request.number }}    # PR number
-${{ github.event.pull_request.title }}     # PR title
-${{ github.event.head_commit.message }}    # Commit message on a push event
+# --- Event payload: pull_request ---
+${{ github.event.pull_request.number }}           # PR number
+${{ github.event.pull_request.title }}            # PR title
+${{ github.event.pull_request.body }}             # PR description
+${{ github.event.pull_request.draft }}            # true if the PR is a draft
+${{ github.event.pull_request.merged }}           # true if the PR was merged
+${{ github.event.pull_request.head.sha }}         # Head commit SHA of the PR branch
+${{ github.event.pull_request.base.ref }}         # Target branch name (e.g. "main")
+${{ github.event.pull_request.user.login }}       # Author's GitHub username
+${{ github.event.pull_request.labels[*].name }}   # List of label names
+
+# --- Event payload: push / head_commit ---
+${{ github.event.head_commit.message }}           # Commit message
+${{ github.event.head_commit.author.name }}       # Author display name
+${{ github.event.head_commit.author.email }}      # Author email
+${{ github.event.head_commit.author.username }}   # Author GitHub username
+${{ github.event.head_commit.added }}             # Array of added file paths
+${{ github.event.head_commit.modified }}          # Array of modified file paths
+${{ github.event.head_commit.removed }}           # Array of removed file paths
+${{ github.event.commits[0].message }}            # First commit message in the push
+${{ github.event.forced }}                        # true if the push was a force-push
+${{ github.event.compare }}                       # URL to compare view for the push
+
+# --- Event payload: repository ---
+${{ github.event.repository.default_branch }}     # "main"
+${{ github.event.repository.visibility }}         # "public" or "private"
+${{ github.event.repository.fork }}               # true if this is a fork
 ```
+
+> `added`, `modified`, and `removed` are arrays — you can't use them directly in an `if:` expression, but you can inspect them in a `run:` step or via a custom action (e.g. `dorny/paths-filter`).
+
 
 ---
 
@@ -1007,6 +1033,275 @@ ${{ inputs.debug }}
 ```
 
 > Both `${{ inputs.x }}` and `${{ github.event.inputs.x }}` work for `workflow_dispatch`, but `inputs` is preferred — it also works for reusable workflows.
+
+---
+
+**`github` context — extended properties:**
+
+```yaml
+# --- Action identity (useful inside composite/reusable actions) ---
+${{ github.action }}               # ID of the currently running action (e.g. "__run")
+${{ github.action_path }}          # Absolute path to the composite action directory
+${{ github.action_ref }}           # Ref of the action being used (e.g. "v3")
+${{ github.action_repository }}    # "owner/repo" of the action being used
+
+# --- Workflow identity ---
+${{ github.workflow_ref }}         # Full ref of the workflow file (e.g. "org/repo/.github/workflows/ci.yml@refs/heads/main")
+${{ github.workflow_sha }}         # SHA of the workflow file being run
+
+# --- URLs ---
+${{ github.graphql_url }}          # "https://api.github.com/graphql"
+
+# --- Misc ---
+${{ github.event_path }}           # Absolute path to the full event JSON payload on disk
+${{ github.retention_days }}       # Default artifact retention in days for this repo
+```
+
+---
+
+**`github` context — more event payloads:**
+
+```yaml
+# --- release event ---
+${{ github.event.release.tag_name }}          # "v1.2.3"
+${{ github.event.release.name }}              # Release title
+${{ github.event.release.body }}              # Release notes
+${{ github.event.release.draft }}             # true if this is a draft release
+${{ github.event.release.prerelease }}        # true if marked as pre-release
+${{ github.event.release.html_url }}          # URL to the GitHub release page
+${{ github.event.release.upload_url }}        # URL to upload release assets
+${{ github.event.release.target_commitish }}  # Branch/SHA the release targets
+${{ github.event.release.author.login }}      # Publisher's GitHub username
+
+# --- issues event ---
+${{ github.event.issue.number }}              # Issue number
+${{ github.event.issue.title }}               # Issue title
+${{ github.event.issue.body }}                # Issue body
+${{ github.event.issue.state }}               # "open" or "closed"
+${{ github.event.issue.user.login }}          # Issue author
+${{ github.event.issue.labels[*].name }}      # List of label names
+${{ github.event.issue.assignees[*].login }}  # Assigned usernames
+${{ github.event.issue.milestone.title }}     # Milestone name (if set)
+${{ github.event.action }}                    # "opened", "closed", "labeled", etc.
+
+# --- issue_comment event ---
+${{ github.event.comment.id }}                # Comment ID
+${{ github.event.comment.body }}              # Comment text
+${{ github.event.comment.user.login }}        # Commenter username
+${{ github.event.comment.html_url }}          # URL to the comment
+
+# --- workflow_run event ---
+${{ github.event.workflow_run.name }}             # Triggering workflow name
+${{ github.event.workflow_run.status }}           # "completed", "in_progress", etc.
+${{ github.event.workflow_run.conclusion }}       # "success", "failure", "cancelled", etc.
+${{ github.event.workflow_run.head_branch }}      # Branch of the triggering run
+${{ github.event.workflow_run.head_sha }}         # Commit SHA of the triggering run
+${{ github.event.workflow_run.run_number }}       # Run number of the triggering workflow
+${{ github.event.workflow_run.html_url }}         # URL to the triggering run
+
+# --- create / delete events (branch or tag created/deleted) ---
+${{ github.event.ref }}                       # Name of the branch or tag
+${{ github.event.ref_type }}                  # "branch" or "tag"
+${{ github.event.master_branch }}             # Default branch of the repo
+
+# --- deployment event ---
+${{ github.event.deployment.id }}             # Deployment ID
+${{ github.event.deployment.environment }}    # Target environment name (e.g. "production")
+${{ github.event.deployment.payload }}        # Custom payload passed to the deployment
+${{ github.event.deployment.sha }}            # SHA being deployed
+${{ github.event.deployment.ref }}            # Branch/tag ref being deployed
+${{ github.event.deployment.task }}           # Task type (usually "deploy")
+
+# --- registry_package event (GitHub Packages) ---
+${{ github.event.registry_package.name }}         # Package name
+${{ github.event.registry_package.package_type }} # "npm", "docker", "maven", etc.
+${{ github.event.registry_package.package_version.version }}  # Version string
+
+# --- schedule event (no payload — use github context instead) ---
+# github.event is an empty object for scheduled runs.
+# Use github.ref_name to know which branch the schedule ran on.
+```
+
+---
+
+**`runner` context — extended properties:**
+
+```yaml
+${{ runner.os }}           # "Linux", "Windows", or "macOS"
+${{ runner.arch }}         # "X64" or "ARM64"
+${{ runner.name }}         # Runner name (e.g. "GitHub Actions 2" or your self-hosted name)
+${{ runner.temp }}         # Temp directory — wiped after each job
+${{ runner.tool_cache }}   # Pre-installed tool versions (used by setup-* actions)
+${{ runner.environment }}  # "github-hosted" or "self-hosted"
+${{ runner.debug }}        # "1" when debug logging is enabled (via secret ACTIONS_STEP_DEBUG)
+```
+
+> Check `runner.debug == '1'` in an `if:` to enable verbose output only during debug reruns.
+
+---
+
+**`job` context — extended properties:**
+
+```yaml
+${{ job.status }}                     # "success", "failure", "cancelled"
+${{ job.container.id }}               # Docker container ID (when using job-level container:)
+${{ job.container.network }}          # Docker network name for the job container
+${{ job.services.<id>.id }}           # Service container Docker ID
+${{ job.services.<id>.network }}      # Network name for the service container
+${{ job.services.<id>.ports }}        # Map of exposed → host ports (e.g. {"5432": "5432"})
+```
+
+---
+
+**`steps` context — extended properties:**
+
+```yaml
+${{ steps.<step-id>.outputs.<name> }}   # Named output set via GITHUB_OUTPUT
+${{ steps.<step-id>.outcome }}          # Raw result before continue-on-error:
+                                        #   "success" | "failure" | "skipped" | "cancelled"
+${{ steps.<step-id>.conclusion }}       # Final result after continue-on-error is applied
+                                        #   (same values; differs when continue-on-error: true)
+```
+
+> `outcome` vs `conclusion`: if a step fails but has `continue-on-error: true`, `outcome` is `"failure"` and `conclusion` is `"success"`.
+
+---
+
+**`needs` context — extended properties:**
+
+```yaml
+${{ needs.<job-id>.result }}            # "success" | "failure" | "skipped" | "cancelled"
+${{ needs.<job-id>.outputs.<name> }}    # Job-level output (must be declared under jobs.<id>.outputs)
+
+# Pattern: gate a deploy on all upstream jobs passing
+if: |
+  needs.lint.result == 'success' &&
+  needs.test.result == 'success' &&
+  needs.build.result == 'success'
+
+# Pattern: run cleanup even when upstream jobs fail
+if: always() && needs.deploy.result == 'failure'
+```
+
+---
+
+**`matrix` context — extended properties:**
+
+```yaml
+${{ matrix.<key> }}          # Any dimension defined in strategy.matrix (e.g. matrix.os, matrix.node)
+
+# Extra keys injected by include: blocks are also available:
+# strategy:
+#   matrix:
+#     os: [ubuntu-latest, windows-latest]
+#     include:
+#       - os: ubuntu-latest
+#         label: Linux
+${{ matrix.label }}          # "Linux" — only on the ubuntu-latest cell
+```
+
+---
+
+**`strategy` context — extended properties:**
+
+```yaml
+${{ strategy.fail-fast }}      # true/false — whether one failing job cancels the rest
+${{ strategy.job-index }}      # 0-based index of the current job within the matrix
+${{ strategy.job-total }}      # Total number of matrix combinations
+${{ strategy.max-parallel }}   # Max simultaneous jobs (0 = unlimited)
+```
+
+> `strategy.job-index == 0` is a reliable way to run a one-time setup step in a matrix.
+
+---
+
+### 10.2.1 Context Availability by Trigger
+
+Not all contexts are fully populated for every trigger. Quick reference:
+
+| Context | `push` | `pull_request` | `workflow_dispatch` | `schedule` | `release` | `workflow_run` |
+|---------|:------:|:--------------:|:-------------------:|:----------:|:---------:|:--------------:|
+| `github.sha` | Full SHA | PR merge SHA | Latest on branch | Latest on branch | Tag SHA | Triggering SHA |
+| `github.ref` | Branch/tag ref | `refs/pull/N/merge` | Branch ref | Branch ref | Tag ref | Branch ref |
+| `github.head_ref` | — | PR source branch | — | — | — | — |
+| `github.base_ref` | — | PR target branch | — | — | — | — |
+| `github.event.*` | Push payload | PR payload | Dispatch inputs | Empty | Release payload | Workflow run payload |
+| `inputs` | — | — | Dispatch inputs | — | — | — |
+
+---
+
+### 10.2.2 Special Built-in Environment Variables
+
+GitHub populates these shell variables on every runner — they mirror the `github.*` context but are usable in any script without `${{ }}` syntax:
+
+```bash
+# Repository
+GITHUB_REPOSITORY          # "org/repo"
+GITHUB_REPOSITORY_OWNER    # "org" or username
+GITHUB_SERVER_URL          # "https://github.com"
+GITHUB_API_URL             # "https://api.github.com"
+GITHUB_GRAPHQL_URL         # "https://api.github.com/graphql"
+
+# Ref / commit
+GITHUB_SHA                 # Full 40-char commit SHA
+GITHUB_REF                 # "refs/heads/main" or "refs/tags/v1.0.0"
+GITHUB_REF_NAME            # "main" or "v1.0.0"
+GITHUB_REF_TYPE            # "branch" or "tag"
+GITHUB_HEAD_REF            # PR source branch (pull_request only)
+GITHUB_BASE_REF            # PR target branch (pull_request only)
+
+# Actor / trigger
+GITHUB_ACTOR               # Username who triggered the run
+GITHUB_EVENT_NAME          # "push", "pull_request", "workflow_dispatch", etc.
+GITHUB_EVENT_PATH          # Absolute path to the full event JSON on disk
+
+# Workflow / run
+GITHUB_WORKFLOW            # Workflow name
+GITHUB_JOB                 # Current job ID
+GITHUB_RUN_ID              # Unique ID for this run
+GITHUB_RUN_NUMBER          # Auto-incrementing count for this workflow
+GITHUB_RUN_ATTEMPT         # Retry count (1 = first attempt)
+GITHUB_WORKFLOW_REF        # Full ref of the workflow file
+
+# Paths
+GITHUB_WORKSPACE           # Absolute path to the checked-out repo
+GITHUB_ACTION_PATH         # Absolute path to the composite action directory
+RUNNER_TEMP                # Temp directory (wiped between jobs)
+RUNNER_TOOL_CACHE          # Pre-installed tool cache directory
+
+# Magic files (append to these to affect subsequent steps)
+GITHUB_ENV                 # Append "KEY=VALUE" to set env vars for later steps
+GITHUB_OUTPUT              # Append "name=value" to set step outputs
+GITHUB_STEP_SUMMARY        # Append Markdown to post a job summary in the UI
+GITHUB_PATH                # Append a path to prepend it to PATH for later steps
+
+# Status flags
+CI                         # Always "true" on GitHub-hosted runners
+GITHUB_ACTIONS             # Always "true" when running inside GitHub Actions
+RUNNER_DEBUG               # "1" when debug logging is enabled; unset otherwise
+```
+
+**Using the magic files:**
+
+```bash
+# Set an env variable for subsequent steps
+echo "VERSION=1.2.3" >> "$GITHUB_ENV"
+
+# Set a step output
+echo "image-tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+# Write a job summary (Markdown rendered in the Actions UI)
+echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
+echo "- Passed: 142" >> "$GITHUB_STEP_SUMMARY"
+echo "- Failed: 0"   >> "$GITHUB_STEP_SUMMARY"
+
+# Add a tool to PATH for later steps
+echo "/opt/my-tool/bin" >> "$GITHUB_PATH"
+```
+
+> All magic files use the `KEY=VALUE` or plain-line format — never `export KEY=VALUE`. Each append takes effect at the **start of the next step**, not within the same `run:` block.
+
+---
 
 ### 10.3 Setting Dynamic Variables Mid-Job
 
